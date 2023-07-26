@@ -1,3 +1,5 @@
+mod primary;
+
 use std::collections::HashMap;
 use std::io::{self, Write};
 
@@ -18,7 +20,7 @@ enum AST {
 }
 
 #[derive(Debug)]
-enum Expression {
+pub enum Expression {
     Terminal(char),
     NonTerminal(String),
     Sequence(Box<Expression>, Box<Expression>),
@@ -59,7 +61,7 @@ impl Expression {
 }
 
 #[derive(Debug)]
-struct Grammar {
+pub struct Grammar {
     rules: HashMap<String, Expression>,
     start_symbol: String,
 }
@@ -98,28 +100,7 @@ fn main() {
         buf.trim().to_string()
     };
 
-    let mut grammar = Grammar::new("S");
-    grammar.add_rule(
-        "S",
-        Expression::OrderedChoice(
-            Box::new(Expression::Sequence(
-                Box::new(Expression::NonTerminal("A".to_string())),
-                Box::new(Expression::NonTerminal("B".to_string())),
-            )),
-            Box::new(Expression::Sequence(
-                Box::new(Expression::NonTerminal("A".to_string())),
-                Box::new(Expression::NonTerminal("A".to_string())),
-            )),
-        ),
-    );
-    grammar.add_rule("A", Expression::Terminal('a'));
-    grammar.add_rule(
-        "B",
-        Expression::Sequence(
-            Box::new(Expression::Terminal('a')),
-            Box::new(Expression::Terminal('b')),
-        ),
-    );
+    let grammar = primary::create_peg_grammar();
 
     match grammar.parse(&input) {
         Ok(ast) => println!("受理🎉 {:?}", ast),
