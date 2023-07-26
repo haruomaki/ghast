@@ -11,6 +11,13 @@ enum ParseError {
 type ParseResult<T> = Result<T, ParseError>;
 
 #[derive(Debug)]
+enum AST {
+    Terminal(char),
+    NonTerminal(String, Box<AST>),
+    Sequence(Box<AST>, Box<AST>),
+}
+
+#[derive(Debug)]
 enum Expression {
     Terminal(char),
     NonTerminal(String),
@@ -19,11 +26,11 @@ enum Expression {
 }
 
 impl Expression {
-    fn parse(&self, grammar: &Grammar, input: &str, i: usize) -> ParseResult<usize> {
+    fn parse(&self, grammar: &Grammar, input: &str, i: usize) -> ParseResult<(usize, AST)> {
         let result = match self {
             Expression::Terminal(c) => {
                 if input.chars().nth(i) == Some(*c) {
-                    Ok(i + 1)
+                    Ok((i + 1, AST::Terminal(*c)))
                 } else {
                     Err(ParseError::WrongTerminal)
                 }
@@ -33,14 +40,16 @@ impl Expression {
                     .rules
                     .get(symbol)
                     .ok_or(ParseError::MissingNonTerminal)?;
-                expr.parse(grammar, input, i)
+                let (j, ast) = expr.parse(grammar, input, i)?;
+                Ok((j, AST::NonTerminal(symbol.clone(), Box::new(ast))))
             }
             Expression::Sequence(e1, e2) => {
-                let j = e1.parse(grammar, input, i)?;
-                e2.parse(grammar, input, j)
+                let (j, ast1) = e1.parse(grammar, input, i)?;
+                let (k, ast2) = e2.parse(grammar, input, j)?;
+                Ok((k, AST::Sequence(Box::new(ast1), Box::new(ast2))))
             }
             Expression::OrderedChoice(e1, e2) => match e1.parse(grammar, input, i) {
-                Ok(j) => Ok(j),
+                Ok((j, ast)) => Ok((j, ast)),
                 Err(_) => e2.parse(grammar, input, i),
             },
         };
@@ -67,11 +76,11 @@ impl Grammar {
         self.rules.insert(sym.to_string(), expr);
     }
 
-    fn parse(&self, input: &str) -> ParseResult<()> {
+    fn parse(&self, input: &str) -> ParseResult<AST> {
         let master_expr = Expression::NonTerminal(self.start_symbol.clone());
-        let j = master_expr.parse(self, input, 0)?;
+        let (j, ast) = master_expr.parse(self, input, 0)?;
         if j == input.len() {
-            Ok(())
+            Ok(ast)
         } else {
             Err(ParseError::IncompleteParse)
         }
@@ -113,7 +122,7 @@ fn main() {
     );
 
     match grammar.parse(&input) {
-        Ok(()) => println!("受理🎉"),
+        Ok(ast) => println!("受理🎉 {:?}", ast),
         Err(e) => println!("拒否({:?})", e),
     }
 }
