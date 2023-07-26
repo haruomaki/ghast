@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::{self, Write};
 
 #[derive(Debug)]
 enum Expression {
@@ -68,7 +69,15 @@ impl Grammar {
 }
 
 fn main() {
-    let input = String::from("aab");
+    print!("入力: ");
+    io::stdout().flush().unwrap();
+    let input = {
+        let mut buf = String::new();
+        io::stdin()
+            .read_line(&mut buf)
+            .expect("Failed to read line");
+        buf.trim().to_string()
+    };
 
     let mut grammar = Grammar::new("S");
     grammar.add_rule(
@@ -94,8 +103,8 @@ fn main() {
     );
 
     if grammar.parse(&input) {
-        println!("受理！");
+        println!("受理🎉");
     } else {
-        println!("拒否…");
+        println!("拒否");
     }
 }
