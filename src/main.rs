@@ -21,6 +21,7 @@ enum AST {
 
 #[derive(Debug)]
 pub enum Expression {
+    Any,
     Terminal(char),
     NonTerminal(String),
     Sequence(Box<Expression>, Box<Expression>),
@@ -30,6 +31,10 @@ pub enum Expression {
 impl Expression {
     fn parse(&self, grammar: &Grammar, input: &str, i: usize) -> ParseResult<(usize, AST)> {
         let result = match self {
+            Expression::Any => match input.chars().nth(i) {
+                Some(c) => Ok((i + 1, AST::Terminal(c))),
+                _ => Err(ParseError::WrongTerminal),
+            },
             Expression::Terminal(c) => {
                 if input.chars().nth(i) == Some(*c) {
                     Ok((i + 1, AST::Terminal(*c)))
@@ -100,7 +105,8 @@ fn main() {
         buf.trim().to_string()
     };
 
-    let grammar = primary::create_peg_grammar();
+    // let grammar = primary::create_peg_grammar();
+    let grammar = primary::grammar_test1();
 
     match grammar.parse(&input) {
         Ok(ast) => println!("受理🎉 {:?}", ast),
