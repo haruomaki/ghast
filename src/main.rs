@@ -1,48 +1,47 @@
-use std::str::Chars;
+enum Expr {
+    P,
+    Cont(Box<Expr>, Box<Expr>),
+}
 
 #[derive(Debug)]
-enum Expression {
-    Terminal(char),
-    Sequence(Box<Expression>, Box<Expression>),
+enum ParseError {
+    WrongTerminal,
+    MissingNonTerminal,
+    IncompleteParse,
 }
 
-struct Parser<'a> {
-    str_iter: Chars<'a>,
+type ParseResult<T> = Result<T, ParseError>;
+
+struct Parser<T, F>
+where
+    F: FnMut(std::str::Chars) -> ParseResult<T>,
+{
+    _parse: F,
 }
 
-impl<'a> Parser<'a> {
-    fn new(input: &'a str) -> Parser<'a> {
-        Parser {
-            str_iter: input.chars(),
-        }
+impl<T, F: FnMut(std::str::Chars) -> ParseResult<T>> Parser<T, F> {
+    fn parse(mut self, input: String) -> ParseResult<T> {
+        (self._parse)(input.chars())
     }
+}
 
-    fn parse_expression(&mut self, expression: &Expression) -> bool {
-        match expression {
-            Expression::Terminal(c) => {
-                if let Some(next_char) = self.str_iter.next() {
-                    return next_char == *c;
+fn terminal(test: char) -> Parser<(), impl FnMut(std::str::Chars) -> ParseResult<()>> {
+    Parser {
+        _parse: move |mut iter| {
+            if let Some(c) = iter.next() {
+                if c == test {
+                    return Ok(());
                 }
-                false
             }
-            Expression::Sequence(e1, e2) => {
-                self.parse_expression(&e1) && self.parse_expression(&e2)
-            }
-        }
+            Err(ParseError::WrongTerminal)
+        },
     }
 }
 
 fn main() {
-    let input = "ab";
-    let mut parser = Parser::new(input);
-    let expression = Expression::Sequence(
-        Box::new(Expression::Terminal('a')),
-        Box::new(Expression::Terminal('b')),
-    );
+    let input = "Hello, World!";
 
-    if parser.parse_expression(&expression) {
-        println!("成功");
-    } else {
-        println!("失敗");
-    }
+    let parser = terminal('H');
+    let result = parser.parse(input.to_string());
+    println!("{:?}", result);
 }
