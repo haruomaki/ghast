@@ -30,7 +30,7 @@ impl<T> Parser<T> {
 
 // モナドのbind関数
 impl<T: 'static> Parser<T> {
-    fn bind<S: 'static>(self, f: fn(T) -> Parser<S>) -> Parser<S> {
+    fn bind<S: 'static>(self, f: impl Fn(T) -> Parser<S> + 'static) -> Parser<S> {
         Parser {
             _parse: Box::new(move |mut iter| {
                 let res = (self._parse)(&mut iter)?;
@@ -51,12 +51,12 @@ impl<S: 'static + Clone> Parser<S> {
     }
 }
 
-impl Parser<()> {
+impl Parser<char> {
     fn terminal(test: char) -> Self {
         Parser {
             _parse: Box::new(move |iter| match iter.next() {
                 Some(c) => match c == test {
-                    true => return Ok(()),
+                    true => return Ok(c),
                     false => Err(ParseError::WrongTerminal),
                 },
                 None => Err(ParseError::IterationError),
@@ -69,13 +69,16 @@ fn main() {
     let input = "Hello, World!";
 
     let parser = Parser::terminal('H');
-    let parser = parser.bind(|()| Parser::terminal('e'));
-    let parser = parser.bind(|()| Parser::terminal('l'));
-    let parser = parser.bind(|()| Parser::terminal('l'));
-    let parser = parser.bind(|()| {
-        Parser::terminal('o');
-        Parser::ret(455)
+    let parser = parser.bind(|large_h| {
+        let pa = Parser::terminal('e');
+        pa.bind(move |small_e| Parser::ret(vec![large_h, small_e]))
     });
+    // 以下と等価:
+    // mdo! {
+    //     large_h <- Parser::terminal('H')
+    //     small_e <- Parser::terminal('e')
+    //     ret vec![large_h, small_e]
+    // }
     let result = parser.parse(input);
     println!("{:?}", result);
 }
