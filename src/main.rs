@@ -1,8 +1,10 @@
+#[allow(dead_code)]
 enum Expr {
     P,
     Cont(Box<Expr>, Box<Expr>),
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 enum ParseError {
     WrongTerminal,
@@ -12,36 +14,35 @@ enum ParseError {
 
 type ParseResult<T> = Result<T, ParseError>;
 
-struct Parser<T, F>
-where
-    F: FnMut(std::str::Chars) -> ParseResult<T>,
-{
-    _parse: F,
+struct Parser<T> {
+    _parse: Box<dyn FnMut(std::str::Chars) -> ParseResult<T>>,
 }
 
-impl<T, F: FnMut(std::str::Chars) -> ParseResult<T>> Parser<T, F> {
+impl<T> Parser<T> {
     fn parse(mut self, input: String) -> ParseResult<T> {
         (self._parse)(input.chars())
     }
 }
 
-fn terminal(test: char) -> Parser<(), impl FnMut(std::str::Chars) -> ParseResult<()>> {
-    Parser {
-        _parse: move |mut iter| {
-            if let Some(c) = iter.next() {
-                if c == test {
-                    return Ok(());
+impl Parser<()> {
+    fn terminal(test: char) -> Self {
+        Parser {
+            _parse: Box::new(move |mut iter| {
+                if let Some(c) = iter.next() {
+                    if c == test {
+                        return Ok(());
+                    }
                 }
-            }
-            Err(ParseError::WrongTerminal)
-        },
+                Err(ParseError::WrongTerminal)
+            }),
+        }
     }
 }
 
 fn main() {
     let input = "Hello, World!";
 
-    let parser = terminal('H');
+    let parser = Parser::terminal('H');
     let result = parser.parse(input.to_string());
     println!("{:?}", result);
 }
