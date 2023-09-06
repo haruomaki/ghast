@@ -43,7 +43,7 @@ impl<T: 'static> Parser<T> {
 
 // モナドのreturn関数
 // _parseが複数回呼び出される可能性がある（Fn）ためCloneを付ける。
-impl<S: 'static + Clone> Parser<S> {
+impl<S: Clone + 'static> Parser<S> {
     fn ret(value: S) -> Self {
         Parser {
             _parse: Box::new(move |_| Ok(value.clone())),
@@ -75,7 +75,7 @@ fn main() {
     let parser = mdo! {
         large_h <- Parser::terminal('H');
         small_e <- Parser::terminal('e');
-        ret Parser::ret(vec![large_h, small_e])
+        ret vec![large_h, small_e]
     };
     let result = parser.parse(input);
     println!("{:?}", result);
@@ -91,6 +91,6 @@ macro_rules! mdo {
         $e.bind(move |()| mdo!($($t)*))
     };
     (ret $e:expr) => {
-        $e
+        Parser::ret($e)
     };
 }
