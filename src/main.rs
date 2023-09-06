@@ -15,11 +15,11 @@ enum ParseError {
 type ParseResult<T> = Result<T, ParseError>;
 
 struct Parser<T> {
-    _parse: Box<dyn FnMut(std::str::Chars) -> ParseResult<T>>,
+    _parse: Box<dyn Fn(std::str::Chars) -> ParseResult<T>>,
 }
 
 impl<T: 'static> Parser<T> {
-    fn parse(mut self, input: impl AsRef<str>) -> ParseResult<T> {
+    fn parse(&self, input: impl AsRef<str>) -> ParseResult<T> {
         let iter = input.as_ref().chars();
         (self._parse)(iter)
     }
