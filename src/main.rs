@@ -68,17 +68,29 @@ impl Parser<char> {
 fn main() {
     let input = "Hello, World!";
 
-    let parser = Parser::terminal('H');
-    let parser = parser.bind(|large_h| {
-        let pa = Parser::terminal('e');
-        pa.bind(move |small_e| Parser::ret(vec![large_h, small_e]))
-    });
-    // 以下と等価:
-    // mdo! {
-    //     large_h <- Parser::terminal('H')
-    //     small_e <- Parser::terminal('e')
-    //     ret vec![large_h, small_e]
-    // }
+    // let parser = Parser::terminal('H').bind(move |large_h| {
+    //     let pa = Parser::terminal('e').bind(move |small_e| Parser::ret(vec![large_h, small_e]))
+    // });
+    // 上記と等価
+    let parser = mdo! {
+        large_h <- Parser::terminal('H');
+        small_e <- Parser::terminal('e');
+        ret Parser::ret(vec![large_h, small_e])
+    };
     let result = parser.parse(input);
     println!("{:?}", result);
+}
+
+// https://blog-dry.com/entry/2020/12/25/130250#do-記法
+#[macro_export]
+macro_rules! mdo {
+    ($i:ident <- $e:expr; $($t:tt)*) => {
+        $e.bind(move |$i| mdo!($($t)*))
+    };
+    ($e:expr; $($t:tt)*) => {
+        $e.bind(move |()| mdo!($($t)*))
+    };
+    (ret $e:expr) => {
+        $e
+    };
 }
