@@ -1,7 +1,8 @@
 #[allow(dead_code)]
+#[derive(Clone, Debug)]
 enum Expr {
-    P,
-    Cont(Box<Expr>, Box<Expr>),
+    Hello,
+    World,
 }
 
 #[allow(dead_code)]
@@ -75,7 +76,10 @@ fn main() {
     let parser = mdo! {
         large_h <- Parser::terminal('H');
         small_e <- Parser::terminal('e');
-        ret vec![large_h, small_e]
+        small_l1 <- Parser::terminal('l');
+        small_l2 <- Parser::terminal('l');
+        small_o <- Parser::terminal('o');
+        ret Expr::Hello
     };
     let result = parser.parse(input);
     println!("{:?}", result);
