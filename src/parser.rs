@@ -3,8 +3,9 @@ use crate::monad::{Functor, Monad};
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum ParseError {
-    WrongTerminal,
+    WrongTerminal(char, char),
     MissingNonTerminal,
+    ChoiceMismatch(Box<ParseError>, Box<ParseError>),
     IncompleteParse,
     IterationError,
 }
@@ -17,6 +18,7 @@ pub struct Parser<T> {
     _parse: Box<dyn Fn(&mut std::str::Chars) -> ParseResult<T>>,
 }
 
+// parse関数
 impl<T> Parser<T> {
     pub fn parse(&self, input: impl AsRef<str>) -> ParseResult<T> {
         let mut iter = input.as_ref().chars();
@@ -24,19 +26,21 @@ impl<T> Parser<T> {
     }
 }
 
+// Functorトレイト
 impl<T> Functor for Parser<T> {
     type A = T;
     type Lifted<B> = Parser<B>;
 }
 
+// Monadトレイト
 impl<T: 'static> Monad for Parser<T> {
-    // モナドのbind関数
+    // モナドのbind関数。連接を表す
     fn bind<S, F: Fn(T) -> Parser<S> + 'static>(self, f: F) -> Parser<S> {
         Parser {
-            _parse: Box::new(move |mut iter| {
-                let res = (self._parse)(&mut iter)?;
+            _parse: Box::new(move |iter| {
+                let res = (self._parse)(iter)?;
                 let par = f(res);
-                (par._parse)(&mut iter)
+                (par._parse)(iter)
             }),
         }
     }
@@ -53,15 +57,32 @@ impl<T: 'static> Monad for Parser<T> {
     }
 }
 
+// 特定の一文字をパースしてその文字を返すパーサ
 impl Parser<char> {
-    pub fn terminal(test: char) -> Self {
+    pub fn terminal(expected: char) -> Self {
         Parser {
             _parse: Box::new(move |iter| match iter.next() {
-                Some(c) => match c == test {
+                Some(c) => match c == expected {
                     true => return Ok(c),
-                    false => Err(ParseError::WrongTerminal),
+                    false => Err(ParseError::WrongTerminal(c, expected)),
                 },
                 None => Err(ParseError::IterationError),
+            }),
+        }
+    }
+}
+
+// 選択を表すコンビネータ
+impl<T: 'static> Parser<T> {
+    pub fn choice(p1: Self, p2: Self) -> Self {
+        Parser {
+            // INFO: Errのときだけ処理を続行する「?」演算子があればもっと簡潔に書ける
+            _parse: Box::new(move |iter| match (p1._parse)(&mut iter.clone()) {
+                Ok(res) => Ok(res),
+                Err(e1) => match (p2._parse)(iter) {
+                    Ok(res) => Ok(res),
+                    Err(e2) => Err(ParseError::ChoiceMismatch(Box::new(e1), Box::new(e2))),
+                },
             }),
         }
     }

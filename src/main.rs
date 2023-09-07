@@ -10,17 +10,18 @@ enum Expr {
     World,
 }
 
-fn main() {
-    let input = "Hello, World!";
+fn consume(it: &mut std::str::Chars) {
+    let c = it.next().unwrap();
+    println!("{}", c);
+}
 
-    let parser_master = mdo! {
-        _large_h <- Parser::terminal('H');
-        _small_e <- Parser::terminal('e');
-        _small_l1 <- Parser::terminal('l');
-        _small_l2 <- Parser::terminal('l');
-        _small_o <- Parser::terminal('o');
-        => Expr::Hello
-    };
+fn main() {
+    let input = "a";
+
+    let parser_a = Parser::terminal('a');
+    let parser_b = Parser::terminal('b');
+
+    let parser_master = Parser::choice(parser_a, parser_b);
     let result = parser_master.parse(input);
     println!("{:?}", result);
 }
