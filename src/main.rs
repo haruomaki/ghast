@@ -20,8 +20,9 @@ fn main() {
 
     let parser_a = Parser::terminal('a');
     let parser_b = Parser::terminal('b');
+    let parser_p = Parser::terminal('p');
 
-    let parser_master = Parser::choice(parser_a, parser_b);
+    let parser_master = parser_a | parser_b | parser_p;
     let result = parser_master.parse(input);
     println!("{:?}", result);
 }
