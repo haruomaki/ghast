@@ -10,19 +10,15 @@ enum Expr {
     World,
 }
 
-fn consume(it: &mut std::str::Chars) {
-    let c = it.next().unwrap();
-    println!("{}", c);
-}
-
 fn main() {
-    let input = "a";
+    let input = "apr";
 
-    let parser_a = Parser::terminal('a');
-    let parser_b = Parser::terminal('b');
-    let parser_p = Parser::terminal('p');
-
-    let parser_master = parser_a | parser_b | parser_p;
+    let parser_master = mdo! {
+        ab <- Parser::terminal('a') | Parser::terminal('b');
+        pl <- Parser::terminal('p') | Parser::terminal('l');
+        qr <- Parser::terminal('q') | Parser::terminal('r');
+        => vec![ab, pl, qr]
+    };
     let result = parser_master.parse(input);
     println!("{:?}", result);
 }

@@ -76,13 +76,19 @@ impl Parser<char> {
 impl<T: 'static> Parser<T> {
     pub fn choice(p1: Self, p2: Self) -> Self {
         Parser {
-            // INFO: Errのときだけ処理を続行する「?」演算子があればもっと簡潔に書ける
-            _parse: Box::new(move |iter| match (p1._parse)(&mut iter.clone()) {
-                Ok(res) => Ok(res),
-                Err(e1) => match (p2._parse)(iter) {
+            // INFO: Errのときだけ処理を続行する「?」演算子があればもっと簡潔に書ける？（でもiter_backupは無理かも）
+            _parse: Box::new(move |iter| {
+                let iter_backup = iter.clone();
+                match (p1._parse)(iter) {
                     Ok(res) => Ok(res),
-                    Err(e2) => Err(ParseError::ChoiceMismatch(Box::new(e1), Box::new(e2))),
-                },
+                    Err(e1) => {
+                        *iter = iter_backup;
+                        match (p2._parse)(iter) {
+                            Ok(res) => Ok(res),
+                            Err(e2) => Err(ParseError::ChoiceMismatch(Box::new(e1), Box::new(e2))),
+                        }
+                    }
+                }
             }),
         }
     }
