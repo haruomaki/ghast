@@ -16,6 +16,35 @@ enum ParseError {
 
 type ParseResult<T> = Result<T, ParseError>;
 
+pub trait Functor {
+    type A;
+    type Lifted<B>: Functor;
+
+    // fn map<F, B>(self, f: F) -> Self::Lifted<B>
+    // where
+    //     F: FnMut(Self::A) -> B;
+}
+
+pub trait Pointed: Functor {
+    // fn pure(t: Self::A) -> Self::Lifted<Self::A>;
+}
+
+pub trait Applicative: Pointed {
+    // fn apply<F, B, C>(self, b: Self::Lifted<B>, f: F) -> Self::Lifted<C>
+    // where
+    //     F: FnMut(Self::A, B) -> C;
+}
+
+pub trait Monad: Functor {
+    fn bind<B, F>(self, f: F) -> Self::Lifted<B>
+    where
+        F: Fn(Self::A) -> Self::Lifted<B> + 'static;
+
+    fn ret(a: Self::A) -> Self
+    where
+        Self::A: Clone;
+}
+
 // パーサ定義を表す構造体。parseの引数に指定して（メンバ関数として呼び出して）使う。
 // NOTE: クロージャを保持しているためClone不可。
 struct Parser<T> {
@@ -29,9 +58,14 @@ impl<T> Parser<T> {
     }
 }
 
+impl<T> Functor for Parser<T> {
+    type A = T;
+    type Lifted<B> = Parser<B>;
+}
+
 // モナドのbind関数
-impl<T: 'static> Parser<T> {
-    fn bind<S: 'static>(self, f: impl Fn(T) -> Parser<S> + 'static) -> Parser<S> {
+impl<T: 'static> Monad for Parser<T> {
+    fn bind<S, F: Fn(T) -> Parser<S> + 'static>(self, f: F) -> Parser<S> {
         Parser {
             _parse: Box::new(move |mut iter| {
                 let res = (self._parse)(&mut iter)?;
@@ -40,12 +74,13 @@ impl<T: 'static> Parser<T> {
             }),
         }
     }
-}
 
-// モナドのreturn関数
-// _parseが複数回呼び出される可能性がある（Fn）ためCloneを付ける。
-impl<S: Clone + 'static> Parser<S> {
-    fn ret(value: S) -> Self {
+    // モナドのreturn関数
+    // _parseが複数回呼び出される可能性がある（Fn）ためCloneを付ける。
+    fn ret(value: T) -> Self
+    where
+        T: Clone,
+    {
         Parser {
             _parse: Box::new(move |_| Ok(value.clone())),
         }
@@ -79,7 +114,7 @@ fn main() {
         small_l1 <- Parser::terminal('l');
         small_l2 <- Parser::terminal('l');
         small_o <- Parser::terminal('o');
-        ret Expr::Hello
+        Monad::ret(Expr::Hello)
     };
     let result = parser.parse(input);
     println!("{:?}", result);
@@ -94,7 +129,7 @@ macro_rules! mdo {
     ($e:expr; $($t:tt)*) => {
         $e.bind(move |()| mdo!($($t)*))
     };
-    (ret $e:expr) => {
-        Parser::ret($e)
+    ($e:expr) => {
+        $e
     };
 }
