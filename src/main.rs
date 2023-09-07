@@ -104,17 +104,13 @@ impl Parser<char> {
 fn main() {
     let input = "Hello, World!";
 
-    // let parser = Parser::terminal('H').bind(move |large_h| {
-    //     let pa = Parser::terminal('e').bind(move |small_e| Parser::ret(vec![large_h, small_e]))
-    // });
-    // 上記と等価
     let parser = mdo! {
-        large_h <- Parser::terminal('H');
-        small_e <- Parser::terminal('e');
-        small_l1 <- Parser::terminal('l');
-        small_l2 <- Parser::terminal('l');
-        small_o <- Parser::terminal('o');
-        Monad::ret(Expr::Hello)
+        _large_h <- Parser::terminal('H');
+        _small_e <- Parser::terminal('e');
+        _small_l1 <- Parser::terminal('l');
+        _small_l2 <- Parser::terminal('l');
+        _small_o <- Parser::terminal('o');
+        => Expr::Hello
     };
     let result = parser.parse(input);
     println!("{:?}", result);
@@ -128,6 +124,9 @@ macro_rules! mdo {
     };
     ($e:expr; $($t:tt)*) => {
         $e.bind(move |()| mdo!($($t)*))
+    };
+    (=> $e:expr) => {
+        Monad::ret($e)
     };
     ($e:expr) => {
         $e
