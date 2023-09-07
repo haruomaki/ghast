@@ -31,13 +31,13 @@ pub trait Monad: Functor {
 #[macro_export]
 macro_rules! mdo {
     ($i:ident <- $e:expr; $($t:tt)*) => {
-        $e.bind(move |$i| mdo!($($t)*))
+        monad::Monad::bind($e, move |$i| mdo!($($t)*))
     };
     ($e:expr; $($t:tt)*) => {
-        $e.bind(move |()| mdo!($($t)*))
+        monad::Monad::bind($e, move |()| mdo!($($t)*))
     };
     (=> $e:expr) => {
-        Monad::ret($e)
+        monad::Monad::ret($e)
     };
     ($e:expr) => {
         $e
