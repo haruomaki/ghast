@@ -6,6 +6,8 @@ pub enum ParseError {
     WrongTerminal(char, char),
     MissingNonTerminal,
     ChoiceMismatch(Box<ParseError>, Box<ParseError>),
+    SatisfyError,
+    ManyError,
     IncompleteParse,
     IterationError,
 }
@@ -70,6 +72,29 @@ impl Parser<char> {
             }),
         }
     }
+
+    // TODO: boodでなくResultにして、エラーを詳細化
+    pub fn satisfy(f: impl Fn(char) -> bool + 'static) -> Self {
+        Parser {
+            _parse: Box::new(move |iter| match iter.next() {
+                Some(c) => match f(c) {
+                    true => return Ok(c),
+                    false => Err(ParseError::SatisfyError),
+                },
+                None => Err(ParseError::IterationError),
+            }),
+        }
+    }
+
+    pub fn ascii_digit() -> Self {
+        Parser::satisfy(|c| char::is_ascii_digit(&c))
+    }
+    pub fn digit(radix: u32) -> Self {
+        Parser::satisfy(move |c| char::is_digit(c, radix))
+    }
+    pub fn numeric() -> Self {
+        Parser::satisfy(char::is_numeric)
+    }
 }
 
 // 選択を表すコンビネータ
@@ -100,5 +125,37 @@ impl<T: 'static> std::ops::BitOr for Parser<T> {
 
     fn bitor(self, rhs: Self) -> Self {
         Parser::choice(self, rhs)
+    }
+}
+
+// 繰り返しを表すコンビネータ
+impl<T: 'static> Parser<T> {
+    pub fn many(self, min: Option<usize>, max: Option<usize>) -> Parser<Vec<T>> {
+        Parser {
+            _parse: Box::new(move |iter| {
+                let mut count = 1;
+                let mut asts = vec![];
+                while match max {
+                    Some(v) => count <= v,
+                    None => true,
+                } {
+                    let iter_backup = iter.clone();
+                    let res = (self._parse)(iter);
+                    if let Ok(ast) = res {
+                        asts.push(ast);
+                        count += 1;
+                    } else {
+                        *iter = iter_backup;
+                        break;
+                    }
+                }
+
+                if min.is_some() && asts.len() < min.unwrap() {
+                    Err(ParseError::ManyError)
+                } else {
+                    Ok(asts)
+                }
+            }),
+        }
     }
 }

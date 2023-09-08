@@ -33,6 +33,9 @@ macro_rules! mdo {
     ($i:ident <- $e:expr; $($t:tt)*) => {
         monad::Monad::bind($e, move |$i| mdo!($($t)*))
     };
+    (_ <- $e:expr; $($t:tt)*) => {
+        monad::Monad::bind($e, move |_| mdo!($($t)*))
+    };
     ($e:expr; $($t:tt)*) => {
         monad::Monad::bind($e, move |()| mdo!($($t)*))
     };

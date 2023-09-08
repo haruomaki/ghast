@@ -23,10 +23,14 @@ fn main() {
     };
 
     let parser_master = mdo! {
-        ab <- Parser::terminal('a') | Parser::terminal('b');
-        pq <- Parser::terminal('p') | Parser::terminal('q');
-        lr <- Parser::terminal('l') | Parser::terminal('r');
-        => vec![ab, pq, lr]
+        _ <- Parser::terminal('0');
+        prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
+        _ <- Parser::terminal('0');
+        _ <- Parser::terminal('-');
+        region <- Parser::ascii_digit().many(Some(4), Some(4));
+        _ <- Parser::terminal('-');
+        id <- Parser::ascii_digit().many(Some(4), Some(4));
+        => prefix
     };
 
     match parser_master.parse(&input) {
