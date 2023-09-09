@@ -20,11 +20,9 @@ pub trait Applicative: Pointed {
 pub trait Monad: Functor {
     fn bind<B, F>(self, f: F) -> Self::Lifted<B>
     where
-        F: Fn(Self::A) -> Self::Lifted<B> + 'static;
+        F: FnOnce(Self::A) -> Self::Lifted<B> + 'static;
 
-    fn ret(a: Self::A) -> Self
-    where
-        Self::A: Clone;
+    fn ret(a: Self::A) -> Self;
 }
 
 // https://blog-dry.com/entry/2020/12/25/130250#do-記法
