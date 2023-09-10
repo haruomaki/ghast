@@ -154,25 +154,6 @@ macro_rules! pdo {
     };
 }
 
-// #[macro_export]
-// macro_rules! mdo_inner {
-//     ($i:ident <- $e:expr; $($t:tt)*) => {
-//         Parser::bind($e, move |$i| mdo!($($t)*))
-//     };
-//     // (_ <- $e:expr; $($t:tt)*) => {
-//     //     Parser::bind($e, move |_| mdo!($($t)*))
-//     // };
-//     ($e:expr; $($t:tt)*) => {
-//         Parser::bind($e, move |()| mdo!($($t)*))
-//     };
-//     (=> $e:expr) => {
-//         Parser::ret($e)
-//     };
-//     // ($e:expr) => {
-//     //     $e
-//     // };
-// }
-
 #[macro_export]
 macro_rules! pdo_with_env {
     (~$($env:ident)*~ $i:ident <- $e:expr; $($t:tt)*) => {
@@ -187,8 +168,7 @@ macro_rules! pdo_with_env {
     };
 
     // return関数
-    (~$($env:ident)*~ => $e:expr) => {
-        // $(let $env = $env.clone();)*
+    (~$($env:ident)*~ return $e:expr) => {
         Parser::ret($e)
     };
 }

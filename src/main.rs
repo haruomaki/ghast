@@ -35,33 +35,14 @@ fn main() {
         _ <- Parser::terminal('0');
         prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
         _ <- Parser::terminal('0');
-        => vec!['0', prefix, '0']
+        return vec!['0', prefix, '0']
     };
 
-    let parser_master = parser_head.bind(move |region| {
-        let region = region.clone();
-        Parser::terminal('-').bind(move |_| {
-            let region = region.clone();
-            Parser::ascii_digit().bind(move |_| Parser::ret(region))
-        })
-    });
-
-    let a = 334;
-    let b = 334;
-    pdo_with_env! (~a b~
-        x <- Parser::terminal('q');
-        => (x, a+b)
-    );
-
-    pdo_with_env! {~ a ~
-        => 'A'
-    };
-
-    let _parser_pdo = pdo_with_env! {~~
-        one <- Parser::terminal('0');
-        prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
-        two <- Parser::terminal('0');
-        => (one, prefix, two)
+    let parser_master = pdo! {
+        region <- parser_head;
+        _ <- Parser::terminal('-');
+        digit <- Parser::ascii_digit();
+        return (region, digit)
     };
 
     match parser_master.parse(&input) {
