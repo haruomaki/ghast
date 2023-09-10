@@ -21,28 +21,15 @@ fn main() {
         buf.trim().to_string()
     };
 
-    // let parser_master = mdo! {
-    //     _ <- Parser::terminal('0');
-    //     prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
-    //     _ <- Parser::terminal('0');
-    //     _ <- Parser::terminal('-');
-    //     region <- Parser::ascii_digit().many(Some(4), Some(4));
-    //     _ <- Parser::terminal('-');
-    //     id <- Parser::ascii_digit().many(Some(4), Some(4));
-    //     => prefix
-    // };
-    let parser_head = pdo! {
+    let parser_master = pdo! {
         _ <- Parser::terminal('0');
         prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
         _ <- Parser::terminal('0');
-        return vec!['0', prefix, '0']
-    };
-
-    let parser_master = pdo! {
-        region <- parser_head;
         _ <- Parser::terminal('-');
-        digit <- Parser::ascii_digit();
-        return (region, digit)
+        region <- Parser::ascii_digit().many(Some(4), Some(4));
+        _ <- Parser::terminal('-');
+        id <- Parser::ascii_digit().many(Some(4), Some(4));
+        return (prefix, region, id)
     };
 
     match parser_master.parse(&input) {
