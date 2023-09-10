@@ -15,11 +15,11 @@ pub type ParseResult<T> = Result<T, ParseError>;
 // パーサ定義を表す構造体。parseの引数に指定して（メンバ関数として呼び出して）使う。
 // NOTE: クロージャを保持しているためClone不可。
 pub struct Parser<T> {
-    _parse: Box<dyn FnOnce(&mut std::str::Chars) -> ParseResult<T>>,
+    _parse: Box<dyn Fn(&mut std::str::Chars) -> ParseResult<T>>,
 }
 
 // 内部だけで使う
-fn new<T>(_parse: impl FnOnce(&mut std::str::Chars) -> ParseResult<T> + 'static) -> Parser<T> {
+fn new<T>(_parse: impl Fn(&mut std::str::Chars) -> ParseResult<T> + 'static) -> Parser<T> {
     Parser {
         _parse: Box::new(_parse),
     }
@@ -34,9 +34,9 @@ impl<T> Parser<T> {
 }
 
 // モナドとしての機能
-impl<T: 'static> Parser<T> {
+impl<T: Clone + 'static> Parser<T> {
     // モナドのbind関数。連接を表す
-    pub fn bind<S, F: FnOnce(T) -> Parser<S> + 'static>(self, f: F) -> Parser<S> {
+    pub fn bind<S, F: Fn(T) -> Parser<S> + 'static>(self, f: F) -> Parser<S> {
         new(move |iter| {
             let res = (self._parse)(iter)?;
             let par = f(res);
@@ -46,7 +46,7 @@ impl<T: 'static> Parser<T> {
 
     // モナドのreturn関数
     pub fn ret(value: T) -> Self {
-        new(move |_| Ok(value))
+        new(move |_| Ok(value.clone()))
     }
 }
 
@@ -114,43 +114,43 @@ impl<T: 'static> std::ops::BitOr for Parser<T> {
 }
 
 // 繰り返しを表すコンビネータ
-// impl<T: 'static> Parser<T> {
-//     pub fn many(self, min: Option<usize>, max: Option<usize>) -> Parser<Vec<T>> {
-//         new(move |iter| {
-//             let mut count = 1;
-//             let mut asts = vec![];
-//             while match max {
-//                 Some(v) => count <= v,
-//                 None => true,
-//             } {
-//                 let iter_backup = iter.clone();
-//                 let res = (self._parse)(iter);
-//                 if let Ok(ast) = res {
-//                     asts.push(ast);
-//                     count += 1;
-//                 } else {
-//                     *iter = iter_backup;
-//                     break;
-//                 }
-//             }
+impl<T: 'static> Parser<T> {
+    pub fn many(self, min: Option<usize>, max: Option<usize>) -> Parser<Vec<T>> {
+        new(move |iter| {
+            let mut count = 1;
+            let mut asts = vec![];
+            while match max {
+                Some(v) => count <= v,
+                None => true,
+            } {
+                let iter_backup = iter.clone();
+                let res = (self._parse)(iter);
+                if let Ok(ast) = res {
+                    asts.push(ast);
+                    count += 1;
+                } else {
+                    *iter = iter_backup;
+                    break;
+                }
+            }
 
-//             if min.is_some() && asts.len() < min.unwrap() {
-//                 Err(ParseError::ManyError)
-//             } else {
-//                 Ok(asts)
-//             }
-//         })
-//     }
-// }
+            if min.is_some() && asts.len() < min.unwrap() {
+                Err(ParseError::ManyError)
+            } else {
+                Ok(asts)
+            }
+        })
+    }
+}
 
 // https://blog-dry.com/entry/2020/12/25/130250#do-記法
 #[macro_export]
 macro_rules! pdo {
     ($i:ident <- $e:expr; $($t:tt)*) => {
-        Parser::bind($e, move |$i| pdo_with_env!(~~ $($t)*))
+        Parser::bind($e, move |$i| {pdo_with_env!{~$i~ $($t)*}})
     };
     (_ <- $e:expr; $($t:tt)*) => {
-        Parser::bind($e, move |_| pdo_with_env!(~~ $($t)*))
+        Parser::bind($e, move |_| {pdo_with_env!{~~ $($t)*}})
     };
 }
 
@@ -169,6 +169,7 @@ macro_rules! pdo_with_env {
 
     // return関数
     (~$($env:ident)*~ return $e:expr) => {
+        $(let $env = $env.clone();)*
         Parser::ret($e)
     };
 }
