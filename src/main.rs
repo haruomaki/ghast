@@ -1,4 +1,3 @@
-mod monad;
 mod parser;
 
 use parser::Parser;

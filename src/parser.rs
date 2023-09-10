@@ -1,5 +1,3 @@
-use crate::monad::{Functor, Monad};
-
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum ParseError {
@@ -35,16 +33,10 @@ impl<T> Parser<T> {
     }
 }
 
-// Functorトレイト
-impl<T> Functor for Parser<T> {
-    type A = T;
-    type Lifted<B> = Parser<B>;
-}
-
-// Monadトレイト
-impl<T: 'static> Monad for Parser<T> {
+// モナドとしての機能
+impl<T: 'static> Parser<T> {
     // モナドのbind関数。連接を表す
-    fn bind<S, F: FnOnce(T) -> Parser<S> + 'static>(self, f: F) -> Parser<S> {
+    pub fn bind<S, F: FnOnce(T) -> Parser<S> + 'static>(self, f: F) -> Parser<S> {
         new(move |iter| {
             let res = (self._parse)(iter)?;
             let par = f(res);
@@ -53,7 +45,7 @@ impl<T: 'static> Monad for Parser<T> {
     }
 
     // モナドのreturn関数
-    fn ret(value: T) -> Self {
+    pub fn ret(value: T) -> Self {
         new(move |_| Ok(value))
     }
 }
@@ -150,3 +142,23 @@ impl<T: 'static> std::ops::BitOr for Parser<T> {
 //         })
 //     }
 // }
+
+// https://blog-dry.com/entry/2020/12/25/130250#do-記法
+#[macro_export]
+macro_rules! mdo {
+    ($i:ident <- $e:expr; $($t:tt)*) => {
+        Parser::bind($e, move |$i| mdo!($($t)*))
+    };
+    (_ <- $e:expr; $($t:tt)*) => {
+        Parser::bind($e, move |_| mdo!($($t)*))
+    };
+    ($e:expr; $($t:tt)*) => {
+        Parser::bind($e, move |()| mdo!($($t)*))
+    };
+    (=> $e:expr) => {
+        Parser::ret($e)
+    };
+    ($e:expr) => {
+        $e
+    };
+}
