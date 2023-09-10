@@ -38,11 +38,13 @@ fn main() {
         => vec!['0', prefix, '0']
     };
 
-    let parser_master = mdo! {
-        head <- parser_head;
-        hy <- Parser::terminal('-');
-        => (head, hy)
-    };
+    let parser_master = parser_head.bind(move |region| {
+        let region = region.clone();
+        Parser::terminal('-').bind(move |_| {
+            let region = region.clone();
+            Parser::ascii_digit().bind(move |_| Parser::ret(region))
+        })
+    });
 
     match parser_master.parse(&input) {
         Ok(ast) => println!("受理🎉 {:?}", ast),
