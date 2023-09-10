@@ -31,7 +31,7 @@ fn main() {
     //     id <- Parser::ascii_digit().many(Some(4), Some(4));
     //     => prefix
     // };
-    let parser_head = mdo! {
+    let parser_head = pdo! {
         _ <- Parser::terminal('0');
         prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
         _ <- Parser::terminal('0');
@@ -45,6 +45,24 @@ fn main() {
             Parser::ascii_digit().bind(move |_| Parser::ret(region))
         })
     });
+
+    let a = 334;
+    let b = 334;
+    pdo_with_env! (~a b~
+        x <- Parser::terminal('q');
+        => (x, a+b)
+    );
+
+    pdo_with_env! {~ a ~
+        => 'A'
+    };
+
+    let _parser_pdo = pdo_with_env! {~~
+        one <- Parser::terminal('0');
+        prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
+        two <- Parser::terminal('0');
+        => (one, prefix, two)
+    };
 
     match parser_master.parse(&input) {
         Ok(ast) => println!("受理🎉 {:?}", ast),

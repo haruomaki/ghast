@@ -145,20 +145,50 @@ impl<T: 'static> std::ops::BitOr for Parser<T> {
 
 // https://blog-dry.com/entry/2020/12/25/130250#do-記法
 #[macro_export]
-macro_rules! mdo {
+macro_rules! pdo {
     ($i:ident <- $e:expr; $($t:tt)*) => {
-        Parser::bind($e, move |$i| mdo!($($t)*))
+        Parser::bind($e, move |$i| pdo_with_env!(~~ $($t)*))
     };
     (_ <- $e:expr; $($t:tt)*) => {
-        Parser::bind($e, move |_| mdo!($($t)*))
+        Parser::bind($e, move |_| pdo_with_env!(~~ $($t)*))
     };
-    ($e:expr; $($t:tt)*) => {
-        Parser::bind($e, move |()| mdo!($($t)*))
+}
+
+// #[macro_export]
+// macro_rules! mdo_inner {
+//     ($i:ident <- $e:expr; $($t:tt)*) => {
+//         Parser::bind($e, move |$i| mdo!($($t)*))
+//     };
+//     // (_ <- $e:expr; $($t:tt)*) => {
+//     //     Parser::bind($e, move |_| mdo!($($t)*))
+//     // };
+//     ($e:expr; $($t:tt)*) => {
+//         Parser::bind($e, move |()| mdo!($($t)*))
+//     };
+//     (=> $e:expr) => {
+//         Parser::ret($e)
+//     };
+//     // ($e:expr) => {
+//     //     $e
+//     // };
+// }
+
+#[macro_export]
+macro_rules! pdo_with_env {
+    (~$($env:ident)*~ $i:ident <- $e:expr; $($t:tt)*) => {
+        $(let $env = $env.clone();)*
+        Parser::bind($e, move |$i| {pdo_with_env!{~$($env)* $i~ $($t)*}})
     };
-    (=> $e:expr) => {
+
+    // モナドから取り出した値を使わない場合
+    (~$($env:ident)*~ _ <- $e:expr; $($t:tt)*) => {
+        $(let $env = $env.clone();)*
+        Parser::bind($e, move |_| {pdo_with_env!{~$($env)*~ $($t)*}})
+    };
+
+    // return関数
+    (~$($env:ident)*~ => $e:expr) => {
+        // $(let $env = $env.clone();)*
         Parser::ret($e)
-    };
-    ($e:expr) => {
-        $e
     };
 }
