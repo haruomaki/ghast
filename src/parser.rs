@@ -94,15 +94,6 @@ impl<T: 'static> Parser<T> {
     }
 }
 
-// choiceと等価の演算子 <|>
-impl<T: 'static> std::ops::BitOr for Parser<T> {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self {
-        Parser::choice(self, rhs)
-    }
-}
-
 // 繰り返しを表すコンビネータ
 impl<T: 'static> Parser<T> {
     pub fn many(self, min: Option<usize>, max: Option<usize>) -> Parser<Vec<T>> {
