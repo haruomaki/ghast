@@ -146,23 +146,21 @@ impl<T: 'static> Parser<T> {
 // https://blog-dry.com/entry/2020/12/25/130250#do-記法
 #[macro_export]
 macro_rules! pdo {
-    ($i:ident <- $e:expr; $($t:tt)*) => {
-        Parser::bind($e, move |$i| {pdo_with_env!{~$i~ $($t)*}})
-    };
-    (_ <- $e:expr; $($t:tt)*) => {
-        Parser::bind($e, move |_| {pdo_with_env!{~~ $($t)*}})
+    ($($t:tt)*) => {
+        pdo_with_env!{~~ $($t)*}
     };
 }
 
 #[macro_export]
 macro_rules! pdo_with_env {
+    // 値を取り出してbindする（>>=）
     (~$($env:ident)*~ $i:ident <- $e:expr; $($t:tt)*) => {
         $(let $env = $env.clone();)*
         Parser::bind($e, move |$i| {pdo_with_env!{~$($env)* $i~ $($t)*}})
     };
 
-    // モナドから取り出した値を使わない場合
-    (~$($env:ident)*~ _ <- $e:expr; $($t:tt)*) => {
+    // モナドから取り出した値を使わない場合（>>）
+    (~$($env:ident)*~ $e:expr; $($t:tt)*) => {
         $(let $env = $env.clone();)*
         Parser::bind($e, move |_| {pdo_with_env!{~$($env)*~ $($t)*}})
     };
@@ -171,5 +169,11 @@ macro_rules! pdo_with_env {
     (~$($env:ident)*~ return $e:expr) => {
         $(let $env = $env.clone();)*
         Parser::ret($e)
+    };
+
+    // returnでなくモナドを直接指定して返す
+    (~$($env:ident)*~ $e:expr) => {
+        $(let $env = $env.clone();)*
+        $e
     };
 }

@@ -22,12 +22,12 @@ fn main() {
     };
 
     let parser_master = pdo! {
-        _ <- Parser::terminal('0');
+        Parser::terminal('0');
         prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
-        _ <- Parser::terminal('0');
-        _ <- Parser::terminal('-');
+        Parser::terminal('0');
+        Parser::terminal('-');
         region <- Parser::ascii_digit().many(Some(4), Some(4));
-        _ <- Parser::terminal('-');
+        Parser::terminal('-');
         id <- Parser::ascii_digit().many(Some(4), Some(4));
         return (prefix, region, id)
     };
