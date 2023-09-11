@@ -143,6 +143,42 @@ impl<T: 'static> Parser<T> {
     }
 }
 
+impl<T: Clone + 'static> Parser<Vec<T>> {
+    pub fn concat(self, rhs: Self) -> Self {
+        new(move |iter| {
+            let ast_left = (self._parse)(iter)?;
+            let ast_right = (rhs._parse)(iter)?;
+            Ok(vec![ast_left, ast_right].concat())
+        })
+    }
+}
+
+impl<T: Clone + 'static> Parser<T> {
+    pub fn and<U: Clone + 'static, S: Clone + 'static>(self, rhs: Parser<S>) -> Parser<Vec<U>>
+    where
+        Parser<T>: Into<Parser<Vec<U>>>,
+        Parser<S>: Into<Parser<Vec<U>>>,
+    {
+        let lhs: Parser<Vec<U>> = self.into();
+        let rhs: Parser<Vec<U>> = rhs.into();
+        lhs.concat(rhs)
+        // new(move |iter| {
+        //     let ast_left = (lhs._parse)(iter)?;
+        //     let ast_right = (rhs._parse)(iter)?;
+        //     Ok(vec![ast_left, ast_right].concat())
+        // })
+    }
+}
+
+impl<T: 'static> Into<Parser<Vec<T>>> for Parser<T> {
+    fn into(self) -> Parser<Vec<T>> {
+        new(move |iter| {
+            let ast = (self._parse)(iter)?;
+            Ok(vec![ast])
+        })
+    }
+}
+
 // https://blog-dry.com/entry/2020/12/25/130250#do-記法
 #[macro_export]
 macro_rules! pdo {

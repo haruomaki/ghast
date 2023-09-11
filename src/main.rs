@@ -21,6 +21,12 @@ fn main() {
         buf.trim().to_string()
     };
 
+    let pv = Parser::terminal('A').and(Parser::terminal('a'));
+    let pw = Parser::terminal('A').and(Parser::terminal('a'));
+    let pa = pv.and(Parser::terminal('b'));
+    let pb = Parser::terminal('b').and(pw);
+    // let pc = pv.concat(pw);
+
     let parser_master = pdo! {
         Parser::terminal('0');
         prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
