@@ -23,10 +23,10 @@ fn main() {
         buf.trim().to_string()
     };
 
-    let pv = Parser::terminal('A').and(Parser::terminal('a'));
-    let pw = Parser::terminal('A').and(Parser::terminal('a'));
-    let pa = pv.and(Parser::terminal('b'));
-    let pb = Parser::terminal('b').and(pw);
+    let pv = Parser::terminal('A') & Parser::terminal('a');
+    let pw = Parser::terminal('A') & Parser::terminal('a');
+    let pa = pv & Parser::terminal('b');
+    let pb = Parser::terminal('b') & pw;
     // let pc = pv.concat(pw);
 
     let parser_master = pdo! {
