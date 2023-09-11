@@ -1,4 +1,5 @@
 mod parser;
+mod utils;
 
 use parser::Parser;
 use std::io::{self, Write};
@@ -28,13 +29,13 @@ fn main() {
     // let pc = pv.concat(pw);
 
     let parser_master = pdo! {
-        Parser::terminal('0');
+        utils::single('0');
         prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
         Parser::terminal('0');
         Parser::terminal('-');
-        region <- Parser::ascii_digit().many(Some(4), Some(4));
+        region <- utils::ascii_digit().many(Some(4), Some(4));
         Parser::terminal('-');
-        id <- Parser::ascii_digit().many(Some(4), Some(4));
+        id <- utils::ascii_digit().many(Some(4), Some(4));
         return (prefix, region, id)
     };
 

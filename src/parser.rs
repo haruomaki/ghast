@@ -72,16 +72,6 @@ impl Parser<char> {
             None => Err(ParseError::IterationError),
         })
     }
-
-    pub fn ascii_digit() -> Self {
-        Parser::satisfy(|c| char::is_ascii_digit(&c))
-    }
-    pub fn digit(radix: u32) -> Self {
-        Parser::satisfy(move |c| char::is_digit(c, radix))
-    }
-    pub fn numeric() -> Self {
-        Parser::satisfy(char::is_numeric)
-    }
 }
 
 // 選択を表すコンビネータ
