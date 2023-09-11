@@ -29,13 +29,13 @@ fn main() {
     // let pc = pv.concat(pw);
 
     let parser_master = pdo! {
-        utils::single('0');
+        Parser::single('0');
         prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
         Parser::terminal('0');
         Parser::terminal('-');
-        region <- utils::ascii_digit().many(Some(4), Some(4));
+        region <- Parser::ascii_digit().many(Some(4), Some(4));
         Parser::terminal('-');
-        id <- utils::ascii_digit().many(Some(4), Some(4));
+        id <- Parser::ascii_digit().many(Some(4), Some(4));
         return (prefix, region, id)
     };
 

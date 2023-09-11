@@ -152,11 +152,6 @@ impl<T: Clone + 'static> Parser<T> {
         let lhs: Parser<Vec<U>> = self.into();
         let rhs: Parser<Vec<U>> = rhs.into();
         lhs.concat(rhs)
-        // new(move |iter| {
-        //     let ast_left = (lhs._parse)(iter)?;
-        //     let ast_right = (rhs._parse)(iter)?;
-        //     Ok(vec![ast_left, ast_right].concat())
-        // })
     }
 }
 
@@ -167,39 +162,4 @@ impl<T: 'static> Into<Parser<Vec<T>>> for Parser<T> {
             Ok(vec![ast])
         })
     }
-}
-
-// https://blog-dry.com/entry/2020/12/25/130250#do-記法
-#[macro_export]
-macro_rules! pdo {
-    ($($t:tt)*) => {
-        pdo_with_env!{~~ $($t)*}
-    };
-}
-
-#[macro_export]
-macro_rules! pdo_with_env {
-    // 値を取り出してbindする（>>=）
-    (~$($env:ident)*~ $i:ident <- $e:expr; $($t:tt)*) => {
-        $(let $env = $env.clone();)*
-        Parser::bind($e, move |$i| {pdo_with_env!{~$($env)* $i~ $($t)*}})
-    };
-
-    // モナドから取り出した値を使わない場合（>>）
-    (~$($env:ident)*~ $e:expr; $($t:tt)*) => {
-        $(let $env = $env.clone();)*
-        Parser::bind($e, move |_| {pdo_with_env!{~$($env)*~ $($t)*}})
-    };
-
-    // return関数
-    (~$($env:ident)*~ return $e:expr) => {
-        $(let $env = $env.clone();)*
-        Parser::ret($e)
-    };
-
-    // returnでなくモナドを直接指定して返す
-    (~$($env:ident)*~ $e:expr) => {
-        $(let $env = $env.clone();)*
-        $e
-    };
 }
