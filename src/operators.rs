@@ -32,3 +32,27 @@ impl<T: Clone + 'static> BitAnd<Parser<Vec<T>>> for Parser<T> {
         self.and(rhs)
     }
 }
+
+// 繰り返しの演算
+impl<T: 'static, R: RangeBounds<usize>> Mul<R> for Parser<T> {
+    type Output = Parser<Vec<T>>;
+    fn mul(self, rhs: R) -> Self::Output {
+        let min = match rhs.start_bound() {
+            Bound::Included(u) => Some(*u),
+            Bound::Excluded(u) => Some(*u + 1),
+            Bound::Unbounded => None,
+        };
+        let max = match rhs.end_bound() {
+            Bound::Included(u) => Some(*u),
+            Bound::Excluded(u) => Some(*u - 1),
+            Bound::Unbounded => None,
+        };
+        self.many(min, max)
+    }
+}
+// impl<T: 'static> Mul<usize> for Parser<T> {
+//     type Output = Parser<Vec<T>>;
+//     fn mul(self, rhs: usize) -> Self::Output {
+//         self.many(Some(rhs), Some(rhs))
+//     }
+// }

@@ -36,9 +36,9 @@ fn main() {
         prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
         Parser::terminal('0');
         Parser::terminal('-');
-        region <- ascii_digit().many(Some(4), Some(4));
+        region <- ascii_digit() * (4..5);
         Parser::terminal('-');
-        id <- ascii_digit().many(Some(4), Some(4));
+        id <- ascii_digit() * (4..5);
         return (prefix, region, id)
     };
 
