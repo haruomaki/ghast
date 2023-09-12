@@ -3,12 +3,5 @@
 version = 3
 
 [[package]]
-name = "ghast"
-version = "0.1.0"
-dependencies = [
- "monapa",
-]
-
-[[package]]
 name = "monapa"
 version = "0.1.0"
