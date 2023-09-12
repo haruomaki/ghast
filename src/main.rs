@@ -24,21 +24,16 @@ fn main() {
         buf.trim().to_string()
     };
 
-    let pv = Parser::terminal('A') & Parser::terminal('a');
-    let pw = Parser::terminal('A') & Parser::terminal('a');
-    let pa = pv & Parser::terminal('b');
-    let pb = Parser::terminal('b') & pw;
-    // let pc = pv.concat(pw);
-
     let parser_master = pdo! {
-        Parser::chunk("phone:");
+        chunk("phone:");
+        single(' ') * (..);
         single('0');
-        prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
-        Parser::terminal('0');
-        Parser::terminal('-');
-        region <- ascii_digit() * (4..5);
-        Parser::terminal('-');
-        id <- ascii_digit() * (4..5);
+        prefix <- single('7') | single('8') | single('9');
+        single('0');
+        single('-');
+        region <- ascii_digit() * 4;
+        single('-');
+        id <- ascii_digit() * 4;
         return (prefix, region, id)
     };
 

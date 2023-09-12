@@ -1,7 +1,7 @@
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum ParseError {
-    WrongTerminal(char, char),
+    WrongSingle(char, char),
     WrongChunk(String, String),
     MissingNonTerminal,
     ChoiceMismatch(Box<ParseError>, Box<ParseError>),
@@ -53,11 +53,11 @@ impl<T: Clone + 'static> Parser<T> {
 
 // 特定の一文字をパースしてその文字を返すパーサ
 impl Parser<char> {
-    pub fn terminal(expected: char) -> Self {
+    pub fn single(expected: char) -> Self {
         new(move |iter| match iter.next() {
             Some(c) => match c == expected {
                 true => return Ok(c),
-                false => Err(ParseError::WrongTerminal(c, expected)),
+                false => Err(ParseError::WrongSingle(c, expected)),
             },
             None => Err(ParseError::IterationError),
         })

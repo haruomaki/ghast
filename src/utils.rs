@@ -1,7 +1,10 @@
 use crate::parser::Parser;
 
 pub fn single(expected: char) -> Parser<char> {
-    Parser::terminal(expected)
+    Parser::single(expected)
+}
+pub fn chunk(expected: impl AsRef<str> + 'static) -> Parser<()> {
+    Parser::chunk(expected)
 }
 pub fn ascii_digit() -> Parser<char> {
     Parser::satisfy(|c| char::is_ascii_digit(&c))
