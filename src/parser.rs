@@ -1,13 +1,11 @@
-#[allow(dead_code)]
 #[derive(Debug)]
 pub enum ParseError {
     WrongSingle(char, char),
     WrongChunk(String, String),
-    MissingNonTerminal,
     ChoiceMismatch(Box<ParseError>, Box<ParseError>),
     SatisfyError,
     ManyError,
-    IncompleteParse,
+    IncompleteParse(Box<dyn std::any::Any>),
     IterationError,
 }
 
@@ -27,10 +25,15 @@ fn new<T>(_parse: impl Fn(&mut std::str::Chars) -> ParseResult<T> + 'static) -> 
 }
 
 // parse関数
-impl<T> Parser<T> {
+impl<T: 'static> Parser<T> {
     pub fn parse(self, input: impl AsRef<str>) -> ParseResult<T> {
         let mut iter = input.as_ref().chars();
-        (self._parse)(&mut iter)
+        let ast = (self._parse)(&mut iter)?;
+        if iter.next() == None {
+            Ok(ast)
+        } else {
+            Err(ParseError::IncompleteParse(Box::new(ast)))
+        }
     }
 }
 
