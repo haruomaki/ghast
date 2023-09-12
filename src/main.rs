@@ -4,6 +4,7 @@ mod utils;
 
 use parser::Parser;
 use std::io::{self, Write};
+use utils::*;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
@@ -31,13 +32,13 @@ fn main() {
 
     let parser_master = pdo! {
         Parser::chunk("phone:");
-        Parser::single('0');
+        single('0');
         prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
         Parser::terminal('0');
         Parser::terminal('-');
-        region <- Parser::ascii_digit().many(Some(4), Some(4));
+        region <- ascii_digit().many(Some(4), Some(4));
         Parser::terminal('-');
-        id <- Parser::ascii_digit().many(Some(4), Some(4));
+        id <- ascii_digit().many(Some(4), Some(4));
         return (prefix, region, id)
     };
 

@@ -1,18 +1,16 @@
 use crate::parser::Parser;
 
-impl Parser<char> {
-    pub fn single(expected: char) -> Self {
-        Parser::terminal(expected)
-    }
-    pub fn ascii_digit() -> Self {
-        Parser::satisfy(|c| char::is_ascii_digit(&c))
-    }
-    pub fn digit(radix: u32) -> Self {
-        Parser::satisfy(move |c| char::is_digit(c, radix))
-    }
-    pub fn numeric() -> Self {
-        Parser::satisfy(char::is_numeric)
-    }
+pub fn single(expected: char) -> Parser<char> {
+    Parser::terminal(expected)
+}
+pub fn ascii_digit() -> Parser<char> {
+    Parser::satisfy(|c| char::is_ascii_digit(&c))
+}
+pub fn digit(radix: u32) -> Parser<char> {
+    Parser::satisfy(move |c| char::is_digit(c, radix))
+}
+pub fn numeric() -> Parser<char> {
+    Parser::satisfy(char::is_numeric)
 }
 
 // https://blog-dry.com/entry/2020/12/25/130250#do-記法
