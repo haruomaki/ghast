@@ -30,6 +30,7 @@ fn main() {
     // let pc = pv.concat(pw);
 
     let parser_master = pdo! {
+        Parser::chunk("phone:");
         Parser::single('0');
         prefix <- Parser::terminal('7') | Parser::terminal('8') | Parser::terminal('9');
         Parser::terminal('0');

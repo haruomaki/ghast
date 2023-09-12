@@ -2,6 +2,7 @@
 #[derive(Debug)]
 pub enum ParseError {
     WrongTerminal(char, char),
+    WrongChunk(String, String),
     MissingNonTerminal,
     ChoiceMismatch(Box<ParseError>, Box<ParseError>),
     SatisfyError,
@@ -59,6 +60,26 @@ impl Parser<char> {
                 false => Err(ParseError::WrongTerminal(c, expected)),
             },
             None => Err(ParseError::IterationError),
+        })
+    }
+
+    pub fn chunk(expected: impl AsRef<str> + 'static) -> Parser<()> {
+        new(move |iter| {
+            let mut found = vec![];
+            for ex in expected.as_ref().chars() {
+                if let Some(c) = iter.next() {
+                    found.push(c);
+                    if c != ex {
+                        return Err(ParseError::WrongChunk(
+                            found.iter().collect(),
+                            expected.as_ref().to_string(),
+                        ));
+                    }
+                } else {
+                    return Err(ParseError::IterationError);
+                }
+            }
+            Ok(())
         })
     }
 
