@@ -20,7 +20,7 @@ pub fn numeric() -> Parser<char> {
 #[macro_export]
 macro_rules! pdo {
     ($($t:tt)*) => {
-        pdo_with_env!{~~ $($t)*}
+        monapa::pdo_with_env!{~~ $($t)*}
     };
 }
 
@@ -29,13 +29,13 @@ macro_rules! pdo_with_env {
     // 値を取り出してbindする（>>=）
     (~$($env:ident)*~ $i:ident <- $e:expr; $($t:tt)*) => {
         $(let $env = $env.clone();)*
-        Parser::bind($e, move |$i| {pdo_with_env!{~$($env)* $i~ $($t)*}})
+        Parser::bind($e, move |$i| {monapa::pdo_with_env!{~$($env)* $i~ $($t)*}})
     };
 
     // モナドから取り出した値を使わない場合（>>）
     (~$($env:ident)*~ $e:expr; $($t:tt)*) => {
         $(let $env = $env.clone();)*
-        Parser::bind($e, move |_| {pdo_with_env!{~$($env)*~ $($t)*}})
+        Parser::bind($e, move |_| {monapa::pdo_with_env!{~$($env)*~ $($t)*}})
     };
 
     // return関数

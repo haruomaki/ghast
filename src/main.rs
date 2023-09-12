@@ -1,10 +1,5 @@
-mod operators;
-mod parser;
-mod utils;
-
-use parser::Parser;
+use monapa::{parser::Parser, utils::*};
 use std::io::{self, Write};
-use utils::*;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
@@ -24,7 +19,7 @@ fn main() {
         buf.trim().to_string()
     };
 
-    let parser_master = pdo! {
+    let parser_master = monapa::pdo! {
         chunk("phone:");
         single(' ') * (..);
         single('0');
