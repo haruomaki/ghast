@@ -32,25 +32,27 @@ macro_rules! pdo {
 macro_rules! pdo_with_env {
     // 値を取り出してbindする（>>=）
     (~$($env:ident)*~ $i:ident <- $e:expr; $($t:tt)*) => {
-        $(let $env = $env.clone();)*
-        monapa::Parser::bind($e, move |$i| {monapa::pdo_with_env!{~$($env)* $i~ $($t)*}})
+        monapa::Parser::bind($e, move |$i| {
+            $(let $env = $env.clone();)*
+            monapa::pdo_with_env!{~$($env)* $i~ $($t)*}
+        })
     };
 
     // モナドから取り出した値を使わない場合（>>）
     (~$($env:ident)*~ $e:expr; $($t:tt)*) => {
-        $(let $env = $env.clone();)*
-        monapa::Parser::bind($e, move |_| {monapa::pdo_with_env!{~$($env)*~ $($t)*}})
+        monapa::Parser::bind($e, move |_| {
+            $(let $env = $env.clone();)*
+            monapa::pdo_with_env!{~$($env)*~ $($t)*}
+        })
     };
 
     // return関数
     (~$($env:ident)*~ return $e:expr) => {
-        $(let $env = $env.clone();)*
         monapa::Parser::ret($e)
     };
 
     // returnでなくモナドを直接指定して返す
     (~$($env:ident)*~ $e:expr) => {
-        $(let $env = $env.clone();)*
         $e
     };
 }
