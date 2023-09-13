@@ -42,8 +42,8 @@ impl<T: Clone + 'static> Parser<T> {
     // モナドのbind関数。連接を表す
     pub fn bind<S, F: Fn(T) -> Parser<S> + 'static>(self, f: F) -> Parser<S> {
         new(move |iter| {
-            let res = (self._parse)(iter)?;
-            let par = f(res);
+            let ast = (self._parse)(iter)?;
+            let par = f(ast);
             (par._parse)(iter)
         })
     }
@@ -51,6 +51,14 @@ impl<T: Clone + 'static> Parser<T> {
     // モナドのreturn関数
     pub fn ret(value: T) -> Self {
         new(move |_| Ok(value.clone()))
+    }
+
+    // map
+    pub fn map<S, F: Fn(T) -> S + 'static>(self, f: F) -> Parser<S> {
+        new(move |iter| {
+            let ast = (self._parse)(iter)?;
+            Ok(f(ast))
+        })
     }
 }
 

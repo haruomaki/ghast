@@ -20,7 +20,8 @@ fn main() {
     };
 
     let parser_master = pdo! {
-        chunk("phone:");
+        chunk("phone");
+        colon <- opt(single(':'));
         single(' ') * (..);
         single('0');
         prefix <- single('7') | single('8') | single('9');
@@ -29,7 +30,7 @@ fn main() {
         region <- ascii_digit() * 4;
         single('-');
         id <- ascii_digit() * 4;
-        return (prefix, region, id)
+        return (colon, prefix, region, id)
     };
 
     match parser_master.parse(&input) {

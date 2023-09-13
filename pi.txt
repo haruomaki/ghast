@@ -30,3 +30,15 @@ m1.bind(move |a1| {
         })
     })
 })
+
+ret_cl = fn(x: i32) -> (i32 -> i32) {
+    fn(y: i32) -> i32 {
+        x + y
+    }
+}
+
+ret_cl = fn(x: i32) -> (i32 -> i32) {
+    fn(y: i32) -> i32 {
+        x + y
+    }
+}
