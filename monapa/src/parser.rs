@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 #[derive(Debug)]
 pub enum ParseError {
     WrongSingle(char, char),
@@ -12,15 +14,15 @@ pub enum ParseError {
 pub type ParseResult<T> = Result<T, ParseError>;
 
 // パーサ定義を表す構造体。parseの引数に指定して（メンバ関数として呼び出して）使う。
-// NOTE: クロージャを保持しているためClone不可。
+#[derive(Clone)]
 pub struct Parser<T> {
-    _parse: Box<dyn Fn(&mut std::str::Chars) -> ParseResult<T>>,
+    _parse: Rc<dyn Fn(&mut std::str::Chars) -> ParseResult<T>>,
 }
 
 // 内部だけで使う
 fn new<T>(_parse: impl Fn(&mut std::str::Chars) -> ParseResult<T> + 'static) -> Parser<T> {
     Parser {
-        _parse: Box::new(_parse),
+        _parse: Rc::new(_parse),
     }
 }
 
