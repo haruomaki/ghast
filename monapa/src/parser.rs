@@ -4,7 +4,7 @@ pub enum ParseError {
     WrongChunk(String, String),
     ChoiceMismatch(Box<ParseError>, Box<ParseError>),
     SatisfyError,
-    ManyError,
+    RepeatError,
     IncompleteParse(Box<dyn std::any::Any>),
     IterationError,
 }
@@ -128,7 +128,7 @@ impl<T: 'static> Parser<T> {
 
 // 繰り返しを表すコンビネータ
 impl<T: 'static> Parser<T> {
-    pub fn many(self, min: Option<usize>, max: Option<usize>) -> Parser<Vec<T>> {
+    pub fn repeat(self, min: Option<usize>, max: Option<usize>) -> Parser<Vec<T>> {
         new(move |iter| {
             let mut count = 1;
             let mut asts = vec![];
@@ -148,7 +148,7 @@ impl<T: 'static> Parser<T> {
             }
 
             if min.is_some() && asts.len() < min.unwrap() {
-                Err(ParseError::ManyError)
+                Err(ParseError::RepeatError)
             } else {
                 Ok(asts)
             }

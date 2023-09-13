@@ -35,32 +35,37 @@ impl<T: Clone + 'static> BitAnd<Parser<Vec<T>>> for Parser<T> {
 
 // 繰り返しの演算
 impl<T: 'static> Mul<RangeFull> for Parser<T> {
+    // Parser<T> * (..)
     type Output = Parser<Vec<T>>;
     fn mul(self, _: RangeFull) -> Self::Output {
-        self.many(None, None)
+        self.repeat(None, None)
     }
 }
 impl<T: 'static> Mul<RangeFrom<usize>> for Parser<T> {
+    // Parser<T> * (n..)
     type Output = Parser<Vec<T>>;
     fn mul(self, rhs: RangeFrom<usize>) -> Self::Output {
-        self.many(Some(rhs.start), None)
+        self.repeat(Some(rhs.start), None)
     }
 }
 impl<T: 'static> Mul<RangeTo<usize>> for Parser<T> {
+    // Parser<T> * (..m)
     type Output = Parser<Vec<T>>;
     fn mul(self, rhs: RangeTo<usize>) -> Self::Output {
-        self.many(None, Some(rhs.end))
+        self.repeat(None, Some(rhs.end))
     }
 }
 impl<T: 'static> Mul<Range<usize>> for Parser<T> {
+    // Parser<T> * (n..m)
     type Output = Parser<Vec<T>>;
     fn mul(self, rhs: Range<usize>) -> Self::Output {
-        self.many(Some(rhs.start), Some(rhs.end))
+        self.repeat(Some(rhs.start), Some(rhs.end))
     }
 }
 impl<T: 'static> Mul<usize> for Parser<T> {
+    // Parser<T> * n
     type Output = Parser<Vec<T>>;
     fn mul(self, rhs: usize) -> Self::Output {
-        self.many(Some(rhs), Some(rhs))
+        self.repeat(Some(rhs), Some(rhs))
     }
 }
