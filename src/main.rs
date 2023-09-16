@@ -20,14 +20,14 @@ fn main() {
         buf.trim().to_string()
     };
 
-    let parser_master = Parser::recurse(|parser_master: Parser<char>| {
+    let parser_master = Parser::recurse(|parser_master: Parser<Vec<char>>| {
         let pao = pdo! {
             single('(');
-            parser_master.clone();
+            p <- parser_master.clone();
             single(')');
-            return 'p'
+            return vec![vec!['('], p, vec![')']].concat()
         };
-        pao | single('a')
+        pao | single('a').map(|a| vec![a])
     });
 
     match parser_master.parse(&input) {
