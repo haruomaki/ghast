@@ -1,4 +1,7 @@
-use std::rc::Rc;
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -186,5 +189,32 @@ impl<T: 'static> Into<Parser<Vec<T>>> for Parser<T> {
             let ast = (self._parse)(iter)?;
             Ok(vec![ast])
         })
+    }
+}
+
+// impl<T> Parser<T> {
+//     pub fn recurse(source: impl Fn(Parser<T>) -> Parser<T>) -> Parser<T> {
+//         let weak_holder;
+//         let par = new(move |iter| {
+//             let par = weak_holder.borrow();
+//             let new_par = source(par);
+//             (new_par._parse)(iter)
+//         });
+//         weak_holder.replace(par);
+//         par
+//     }
+// }
+
+impl<T: Clone + Default + 'static> Parser<T> {
+    pub fn recurse(source: impl Fn(Parser<T>) -> Parser<T> + 'static) -> Parser<T> {
+        let weak_holder = Rc::new(RefCell::new(Parser::ret(T::default())));
+        let weak_holder2 = weak_holder.clone();
+        let par = new(move |iter| {
+            let par = weak_holder2.borrow().clone();
+            let new_par = source(par);
+            (new_par._parse)(iter)
+        });
+        weak_holder.replace(par.clone());
+        par
     }
 }
