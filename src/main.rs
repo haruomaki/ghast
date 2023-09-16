@@ -21,13 +21,12 @@ fn main() {
     };
 
     let parser_master = Parser::recurse(|parser_master: Parser<Vec<char>>| {
-        let pao = pdo! {
+        pdo! (
             single('(');
             p <- parser_master.clone();
             single(')');
             return vec![vec!['('], p, vec![')']].concat()
-        };
-        pao | single('a').map(|a| vec![a])
+        ) | single('a').map(|a| vec![a])
     });
 
     match parser_master.parse(&input) {
