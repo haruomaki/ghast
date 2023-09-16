@@ -3,9 +3,10 @@ use std::io::{self, Write};
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
-enum Expr {
-    Hello,
-    World,
+enum Ghast {
+    Symbol(String),
+    List(Vec<Ghast>),
+    Fn(Box<Ghast>, Box<Ghast>),
 }
 
 fn main() {
@@ -19,18 +20,10 @@ fn main() {
         buf.trim().to_string()
     };
 
+    let one = single('1').map(|_| Ghast::Symbol("1".to_owned()));
+
     let parser_master = pdo! {
-        chunk("phone");
-        colon <- opt(single(':'));
-        single(' ') * (..);
-        single('0');
-        prefix <- single('7') | single('8') | single('9');
-        single('0');
-        single('-');
-        region <- ascii_digit() * 4;
-        single('-');
-        id <- ascii_digit() * 4;
-        return (colon, prefix, region, id)
+        one
     };
 
     match parser_master.parse(&input) {
