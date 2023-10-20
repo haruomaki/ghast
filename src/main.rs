@@ -20,11 +20,14 @@ fn main() {
         buf.trim().to_string()
     };
 
-    let one = single('1').map(|_| Ghast::Symbol("1".to_owned()));
-
-    let parser_master = pdo! {
-        one
-    };
+    let parser_master = Parser::recurse(|parser_master: Parser<Vec<char>>| {
+        pdo! (
+            single('(');
+            p <- parser_master.clone();
+            single(')');
+            return vec![vec!['('], p, vec![')']].concat()
+        ) | single('a').map(|a| vec![a])
+    });
 
     match parser_master.parse(&input) {
         Ok(ast) => println!("受理🎉 {:?}", ast),
