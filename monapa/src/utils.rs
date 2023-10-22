@@ -34,10 +34,11 @@ impl<T: Clone + 'static> Parser<T> {
 }
 
 // https://blog-dry.com/entry/2020/12/25/130250#do-記法
+// https://zenn.dev/heppoko_quasar/articles/df8e0aed2c088e
 #[macro_export]
 macro_rules! pdo {
     ($($t:tt)*) => {
-        monapa::pdo_with_env!{~~ $($t)*}
+        $crate::pdo_with_env!{~~ $($t)*}
     };
 }
 
@@ -45,23 +46,23 @@ macro_rules! pdo {
 macro_rules! pdo_with_env {
     // 値を取り出してbindする（>>=）
     (~$($env:ident)*~ $i:ident <- $e:expr; $($t:tt)*) => {
-        monapa::Parser::bind($e, move |$i| {
+        $crate::Parser::bind($e, move |$i| {
             $(let $env = $env.clone();)*
-            monapa::pdo_with_env!{~$($env)* $i~ $($t)*}
+            $crate::pdo_with_env!{~$($env)* $i~ $($t)*}
         })
     };
 
     // モナドから取り出した値を使わない場合（>>）
     (~$($env:ident)*~ $e:expr; $($t:tt)*) => {
-        monapa::Parser::bind($e, move |_| {
+        $crate::Parser::bind($e, move |_| {
             $(let $env = $env.clone();)*
-            monapa::pdo_with_env!{~$($env)*~ $($t)*}
+            $crate::pdo_with_env!{~$($env)*~ $($t)*}
         })
     };
 
     // return関数
     (~$($env:ident)*~ return $e:expr) => {
-        monapa::Parser::ret($e)
+        $crate::Parser::ret($e)
     };
 
     // returnでなくモナドを直接指定して返す
