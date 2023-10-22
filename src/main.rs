@@ -10,15 +10,6 @@ enum Ghast {
     Apply(Box<Ghast>, Box<Ghast>),
 }
 
-fn symbol() -> Parser<Ghast> {
-    (Parser::satisfy(|c| !char::is_whitespace(c)) * (1..))
-        .map(|s| Ghast::Symbol(s.iter().collect()))
-}
-
-fn whitespaces() -> Parser<()> {
-    (whitespace() * (1..)).map(|_| ())
-}
-
 fn main() {
     print!("入力: ");
     io::stdout().flush().unwrap();
@@ -30,14 +21,11 @@ fn main() {
         buf.trim().to_string()
     };
 
-    let parser_master = pdo! {
-        head <- symbol();
-        tail <- pdo! {
-            whitespaces();
-            symbol()
-        } * (..);
-        return vec![vec![head], tail].concat()
-    };
+    let parser_symbol = (Parser::satisfy(|c| !char::is_whitespace(c)) * (1..))
+        .map(|s| Ghast::Symbol(s.iter().collect()));
+    let whitespaces = whitespace() * (1..);
+
+    let parser_master = parser_symbol.sep_by(whitespaces);
 
     match parser_master.parse(&input) {
         Ok(ast) => println!("受理🎉 {:?}", ast),

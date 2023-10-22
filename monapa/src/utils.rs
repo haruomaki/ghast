@@ -23,6 +23,16 @@ pub fn opt<T: Clone + 'static>(p: Parser<T>) -> Parser<Option<T>> {
     p.map(|ast| Some(ast)) | Parser::ret(None)
 }
 
+impl<T: Clone + 'static> Parser<T> {
+    pub fn sep_by<S: Clone + 'static>(self, p: Parser<S>) -> Parser<Vec<T>> {
+        self.clone().bind(move |head| {
+            let slf = self.clone();
+            let tail_parser = p.clone().bind(move |_| slf.clone()) * (..);
+            tail_parser.bind(move |tail| Parser::ret(vec![vec![head.clone()], tail].concat()))
+        })
+    }
+}
+
 // https://blog-dry.com/entry/2020/12/25/130250#do-記法
 #[macro_export]
 macro_rules! pdo {
