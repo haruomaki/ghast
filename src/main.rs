@@ -5,8 +5,9 @@ use std::io::{self, Write};
 #[derive(Clone, Debug)]
 enum Ghast {
     Symbol(String),
-    List(Vec<Ghast>),
+    Tuple(Vec<Ghast>),
     Fn(Box<Ghast>, Box<Ghast>),
+    Apply(Box<Ghast>, Box<Ghast>),
 }
 
 fn main() {
@@ -20,13 +21,17 @@ fn main() {
         buf.trim().to_string()
     };
 
-    let parser_master = Parser::recurse(|parser_master: Parser<Vec<char>>| {
-        pdo! (
-            single('(');
-            p <- parser_master.clone();
-            single(')');
-            return vec![vec!['('], p, vec![')']].concat()
-        ) | single('a').map(|a| vec![a])
+    let parser_symbol = (Parser::satisfy(|c| !char::is_whitespace(c)) * (1..))
+        .map(|s| Ghast::Symbol(s.iter().collect()));
+    let whitespaces = whitespace() * (1..);
+
+    let parser_master = parser_symbol.clone().bind(move |head| {
+        let head = head.clone();
+        let parser_symbol = parser_symbol.clone();
+        (whitespaces.clone().bind(move |_| parser_symbol.clone()) * (..)).bind(move |tail| {
+            let head = head.clone();
+            Parser::ret(vec![vec![head.clone()], tail].concat())
+        })
     });
 
     match parser_master.parse(&input) {

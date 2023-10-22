@@ -15,6 +15,9 @@ pub fn digit(radix: u32) -> Parser<char> {
 pub fn numeric() -> Parser<char> {
     Parser::satisfy(char::is_numeric)
 }
+pub fn whitespace() -> Parser<char> {
+    Parser::satisfy(char::is_whitespace)
+}
 
 pub fn opt<T: Clone + 'static>(p: Parser<T>) -> Parser<Option<T>> {
     p.map(|ast| Some(ast)) | Parser::ret(None)
