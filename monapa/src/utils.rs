@@ -15,16 +15,22 @@ pub fn digit(radix: u32) -> Parser<char> {
 pub fn numeric() -> Parser<char> {
     Parser::satisfy(char::is_numeric)
 }
+pub fn alphabetic() -> Parser<char> {
+    Parser::satisfy(char::is_alphabetic)
+}
+pub fn alphanumeric() -> Parser<char> {
+    Parser::satisfy(char::is_alphanumeric)
+}
 pub fn whitespace() -> Parser<char> {
     Parser::satisfy(char::is_whitespace)
 }
 
-pub fn opt<T: Clone + 'static>(p: Parser<T>) -> Parser<Option<T>> {
+pub fn option<T: Clone + 'static>(p: Parser<T>) -> Parser<Option<T>> {
     p.map(|ast| Some(ast)) | Parser::ret(None)
 }
 
 impl<T: Clone + 'static> Parser<T> {
-    pub fn sep_by<S: Clone + 'static>(self, p: Parser<S>) -> Parser<Vec<T>> {
+    pub fn separated_by<S: Clone + 'static>(self, p: Parser<S>) -> Parser<Vec<T>> {
         self.clone().bind(move |head| {
             let slf = self.clone();
             let tail_parser = p.clone().bind(move |_| slf.clone()) * (..);
@@ -58,6 +64,12 @@ macro_rules! pdo_with_env {
             $(let $env = $env.clone();)*
             $crate::pdo_with_env!{~$($env)*~ $($t)*}
         })
+    };
+
+    // let文
+    (~$($env:ident)*~ let $i:ident = $e:expr; $($t:tt)*) => {
+        let $i = $e;
+        $crate::pdo_with_env!{~$($env)* $i~ $($t)*}
     };
 
     // return関数
