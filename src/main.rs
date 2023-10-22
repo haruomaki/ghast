@@ -11,11 +11,11 @@ enum Ghast {
 }
 
 fn id_start() -> Parser<char> {
-    alphabetic()
+    Parser::satisfy(|c| c == '_' || c.is_alphabetic())
 }
 
 fn id_continue() -> Parser<char> {
-    alphanumeric()
+    Parser::satisfy(|c| c == '_' || c.is_alphanumeric())
 }
 
 fn ghast_symbol() -> Parser<Ghast> {
