@@ -7,3 +7,7 @@ edition = "2021"
 
 [dependencies]
 monapa = { path = "./monapa" }
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = [
+    "llvm16-0",
+] }
+llvm-sys = { features = ["prefer-dynamic"] } # inkwellから依存。動的リンクを明示
