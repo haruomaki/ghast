@@ -10,6 +10,7 @@ enum Ghast {
     Tuple(Vec<Ghast>),
     Fn(Box<Ghast>, Box<Ghast>),
     Apply(Box<Ghast>, Box<Ghast>),
+    I32(i32),
 }
 
 fn id_start() -> Parser<char> {
@@ -18,6 +19,10 @@ fn id_start() -> Parser<char> {
 
 fn id_continue() -> Parser<char> {
     Parser::satisfy(|c| c == '_' || c.is_alphanumeric())
+}
+
+fn literal_digit() -> Parser<char> {
+    Parser::satisfy(|c| c.is_ascii_digit())
 }
 
 fn ghast_symbol() -> Parser<Ghast> {
@@ -41,8 +46,16 @@ fn ghast_fn() -> Parser<Ghast> {
     }
 }
 
+fn ghast_i32() -> Parser<Ghast> {
+    pdo! {
+        num <- literal_digit() * (1..);
+        let num_str = num.iter().collect::<String>();
+        return Ghast::I32(num_str.parse().unwrap())
+    }
+}
+
 fn ghast_master() -> Parser<Ghast> {
-    ghast_fn() | ghast_symbol()
+    ghast_fn() | ghast_symbol() | ghast_i32()
 }
 
 fn main() {
