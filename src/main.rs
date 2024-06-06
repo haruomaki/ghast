@@ -1,4 +1,8 @@
+use inkwell::builder::Builder;
 use inkwell::context::Context;
+use inkwell::module::Module;
+use inkwell::AddressSpace;
+
 use monapa::*;
 use std::error::Error;
 use std::io::{self, Write};
@@ -7,7 +11,6 @@ use std::io::{self, Write};
 #[derive(Clone, Debug)]
 enum Ghast {
     Symbol(String),
-    Tuple(Vec<Ghast>),
     Fn(Box<Ghast>, Box<Ghast>),
     Apply(Box<Ghast>, Box<Ghast>),
     I32(i32),
@@ -59,8 +62,6 @@ fn ghast_master() -> Parser<Ghast> {
 }
 
 fn main() {
-    build_hi().unwrap();
-
     print!("入力: ");
     io::stdout().flush().unwrap();
     let input = {
@@ -84,24 +85,45 @@ fn main() {
             }
         }
     }
+
+    let ir = build_main().unwrap();
+    print!("{}", ir);
 }
 
 // https://yhara.jp/2019/06/09/inkwell-hi
-fn build_hi() -> Result<(), Box<dyn Error>> {
+fn build_main() -> Result<String, Box<dyn Error>> {
     let context = Context::create();
     let module = context.create_module("main");
     let builder = context.create_builder();
     let i32_type = context.i32_type();
+    let i8_type = context.i8_type();
+    let i8ptr_type = i8_type.ptr_type(AddressSpace::default());
 
     // declare i32 @putchar(i32)
     let putchar_type = i32_type.fn_type(&[i32_type.into()], false);
     module.add_function("putchar", putchar_type, None);
+
+    // declare i32 @printf(ptr, ...)
+    let printf_type = i32_type.fn_type(&[i8ptr_type.into()], true);
+    module.add_function("printf", printf_type, None);
 
     // define i32 @main() {
     let main_type = i32_type.fn_type(&[], false);
     let function = module.add_function("main", main_type, None);
     let basic_block = context.append_basic_block(function, "entry");
     builder.position_at_end(basic_block);
+
+    hi(&context, &module, &builder)?;
+    hi(&context, &module, &builder)?;
+
+    // ret i32 0
+    builder.build_return(Some(&i32_type.const_int(0, false)))?;
+
+    Ok(module.print_to_string().to_string())
+}
+
+fn hi(context: &Context, module: &Module, builder: &Builder) -> Result<(), Box<dyn Error>> {
+    let i32_type = context.i32_type();
 
     // call i32 @putchar(i32 72)
     let fun = module.get_function("putchar");
@@ -110,16 +132,6 @@ fn build_hi() -> Result<(), Box<dyn Error>> {
         &[i32_type.const_int(72, false).into()],
         "putchar",
     )?;
-    builder.build_call(
-        fun.unwrap(),
-        &[i32_type.const_int(105, false).into()],
-        "putchar",
-    )?;
-
-    // ret i32 0
-    builder.build_return(Some(&i32_type.const_int(0, false)))?;
-
-    module.print_to_stderr();
 
     Ok(())
 }
