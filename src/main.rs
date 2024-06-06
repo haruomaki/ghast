@@ -1,6 +1,7 @@
 use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::module::Module;
+use inkwell::module::{Linkage, Module};
+use inkwell::values::PointerValue;
 use inkwell::AddressSpace;
 
 use monapa::*;
@@ -62,7 +63,7 @@ fn ghast_master() -> Parser<Ghast> {
 }
 
 fn main() {
-    print!("入力: ");
+    eprint!("入力: ");
     io::stdout().flush().unwrap();
     let input = {
         let mut buf = String::new();
@@ -75,12 +76,12 @@ fn main() {
     let parser_master = ghast_master();
 
     match parser_master.parse(&input) {
-        Ok(ast) => println!("受理🎉 {:?}", ast),
+        Ok(ast) => eprintln!("受理🎉 {:?}", ast),
         Err(e) => {
-            println!("拒否 {:?}", e);
+            eprintln!("拒否 {:?}", e);
             if let ParseError::IncompleteParse(e) = &e {
                 if let Some(ast) = e.downcast_ref::<Ghast>() {
-                    println!("途中まで {:?}", ast);
+                    eprintln!("途中まで {:?}", ast);
                 }
             }
         }
@@ -99,9 +100,17 @@ fn build_main() -> Result<String, Box<dyn Error>> {
     let i8_type = context.i8_type();
     let i8ptr_type = i8_type.ptr_type(AddressSpace::default());
 
-    // declare i32 @putchar(i32)
-    let putchar_type = i32_type.fn_type(&[i32_type.into()], false);
-    module.add_function("putchar", putchar_type, None);
+    // Define the string constant
+    let str_constant = context.const_string(b"%d\n", true);
+    let global_str = module.add_global(
+        str_constant.get_type(),
+        Some(AddressSpace::default()),
+        "num_format",
+    );
+    global_str.set_initializer(&str_constant);
+    global_str.set_unnamed_addr(true);
+    global_str.set_constant(true);
+    global_str.set_linkage(Linkage::Private);
 
     // declare i32 @printf(ptr, ...)
     let printf_type = i32_type.fn_type(&[i8ptr_type.into()], true);
@@ -113,8 +122,13 @@ fn build_main() -> Result<String, Box<dyn Error>> {
     let basic_block = context.append_basic_block(function, "entry");
     builder.position_at_end(basic_block);
 
-    hi(&context, &module, &builder)?;
-    hi(&context, &module, &builder)?;
+    print_num(
+        &context,
+        &module,
+        &builder,
+        global_str.as_pointer_value(),
+        334,
+    );
 
     // ret i32 0
     builder.build_return(Some(&i32_type.const_int(0, false)))?;
@@ -122,16 +136,24 @@ fn build_main() -> Result<String, Box<dyn Error>> {
     Ok(module.print_to_string().to_string())
 }
 
-fn hi(context: &Context, module: &Module, builder: &Builder) -> Result<(), Box<dyn Error>> {
+fn print_num(
+    context: &Context,
+    module: &Module,
+    builder: &Builder,
+    format_str: PointerValue,
+    value: i32,
+) {
     let i32_type = context.i32_type();
 
-    // call i32 @putchar(i32 72)
-    let fun = module.get_function("putchar");
-    builder.build_call(
-        fun.unwrap(),
-        &[i32_type.const_int(72, false).into()],
-        "putchar",
-    )?;
-
-    Ok(())
+    let fun = module.get_function("printf");
+    builder
+        .build_call(
+            fun.unwrap(),
+            &[
+                format_str.into(),
+                i32_type.const_int(value as u64, false).into(),
+            ],
+            "printf_result",
+        )
+        .unwrap();
 }
