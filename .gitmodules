@@ -1,0 +1,3 @@
+[submodule "monapa"]
+	path = monapa
+	url = git@github.com:haruomaki/monapa.git
