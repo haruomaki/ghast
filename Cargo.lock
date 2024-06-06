@@ -31,7 +31,6 @@ name = "ghast"
 version = "0.1.0"
 dependencies = [
  "inkwell",
- "llvm-sys",
  "monapa",
 ]
 
