@@ -5,21 +5,14 @@ use inkwell::values::FunctionValue;
 use inkwell::AddressSpace;
 
 use std::error::Error;
-use std::io::{self, Write};
 
 mod parser;
 use parser::{Ghast, ParseError};
 
-fn main() -> Result<(), ParseError> {
-    eprint!("入力: ");
-    io::stdout().flush().unwrap();
-    let input = {
-        let mut buf = String::new();
-        io::stdin()
-            .read_line(&mut buf)
-            .expect("Failed to read line");
-        buf.trim().to_string()
-    };
+fn main() -> Result<(), Box<dyn Error>> {
+    // 入力受け付け
+    let mut rl = rustyline::DefaultEditor::new()?;
+    let input = rl.readline(">> ")?;
 
     let parser_master = parser::ghast_master();
 
@@ -40,7 +33,7 @@ fn main() -> Result<(), ParseError> {
                 }
             }
 
-            Err(e)
+            Err(Box::new(e))
         }
     }
 }
