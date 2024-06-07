@@ -6,16 +6,24 @@
 
 use std::error::Error;
 
-mod parser;
-// use parser::{Ghast, ParseError};
+mod corelang;
+mod ghast;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // 入力受け付け
     let mut rl = rustyline::DefaultEditor::new()?;
     let input = rl.readline(">> ")?;
 
-    println!("{:?}", parser::ghast_master().parse(input));
-    Ok(())
+    let result = ghast::ghast_master().parse(input);
+    match result {
+        Ok(ghast) => {
+            println!("パース成功: {:?}", ghast);
+            let core_ast = corelang::convert_into_core(ghast);
+            println!("コア言語: {:?}", core_ast);
+            Ok(())
+        }
+        Err(e) => Err(Box::new(e)),
+    }
 
     // let parser_master = parser::ghast_master();
 

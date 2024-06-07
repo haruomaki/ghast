@@ -4,8 +4,13 @@ pub use monapa::ParseError;
 
 #[derive(Clone, Debug)]
 pub struct Binop {
-    terms: Vec<Ghast>,
-    ops: Vec<String>,
+    pub terms: Vec<Ghast>,
+    pub ops: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub enum Literal {
+    I32(i32),
 }
 
 #[allow(dead_code)]
@@ -14,7 +19,7 @@ pub enum Ghast {
     Symbol(String),
     Fn(String, Box<Ghast>),
     Binop(Binop),
-    I32(i32),
+    Lit(Literal),
 }
 
 fn id_start() -> Parser<char> {
@@ -89,7 +94,7 @@ fn paren() -> Parser<Ghast> {
 }
 
 fn term() -> Parser<Ghast> {
-    ghast_fn() | ghast_symbol() | ghast_i32() | paren()
+    ghast_fn() | ghast_symbol() | ghast_lit() | paren()
 }
 
 fn ghast_symbol() -> Parser<Ghast> {
@@ -108,11 +113,12 @@ fn ghast_fn() -> Parser<Ghast> {
     }
 }
 
-fn ghast_i32() -> Parser<Ghast> {
+fn ghast_lit() -> Parser<Ghast> {
     pdo! {
+        // I32
         num <- literal_digit() * (1..);
         let num_str = num.iter().collect::<String>();
-        return Ghast::I32(num_str.parse().unwrap())
+        return Ghast::Lit(Literal::I32(num_str.parse().unwrap()))
     }
 }
 
