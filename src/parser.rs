@@ -2,12 +2,18 @@ use monapa::*;
 
 pub use monapa::ParseError;
 
+#[derive(Clone, Debug)]
+pub struct Binops {
+    terms: Vec<Ghast>,
+    ops: Vec<String>,
+}
+
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Ghast {
     Symbol(String),
     Fn(String, Box<Ghast>),
-    Apply(Box<Ghast>, Box<Ghast>),
+    Binops(Binops),
     I32(i32),
 }
 
@@ -30,6 +36,41 @@ fn id() -> Parser<String> {
 
 fn literal_digit() -> Parser<char> {
     Parser::satisfy(|c| c.is_ascii_digit())
+}
+
+fn binop() -> Parser<String> {
+    pdo! {
+        whitespace() * ..;
+        op <- single('&');
+        whitespace() * ..;
+        return op.to_string()
+    }
+}
+
+fn append_binop_term(left: Ghast, op: String, mut right: Binops) -> Binops {
+    right.terms.push(left);
+    right.ops.push(op);
+    right
+}
+
+fn binops_new(term: Ghast) -> Binops {
+    Binops {
+        terms: vec![term],
+        ops: vec![],
+    }
+}
+
+fn ghast_binop_right() -> Parser<Binops> {
+    (pdo! {
+        left <- term();
+        op <- binop();
+        right <- ghast_binop_right();
+        return append_binop_term(left, op, right)
+    }) | term().bind(|t| Parser::ret(binops_new(t)))
+}
+
+fn term() -> Parser<Ghast> {
+    ghast_fn() | ghast_symbol() | ghast_i32()
 }
 
 fn ghast_symbol() -> Parser<Ghast> {
@@ -56,38 +97,9 @@ fn ghast_i32() -> Parser<Ghast> {
     }
 }
 
-fn paren() -> Parser<Ghast> {
-    (pdo! {
-        single('(');
-        whitespace() * ..;
-        content <- paren();
-        whitespace() * ..;
-        single(')');
-        return content
-    }) | (ghast_fn() | ghast_symbol() | ghast_i32())
-}
-
-fn ghast_apply_left() -> Parser<Ghast> {
-    paren()
-}
-
-fn ghast_apply_right() -> Parser<Option<Ghast>> {
-    // FIXME: 余計なカッコを明示しないといけないバグを修正
-    (pdo! {
-        whitespace() * (1..);
-        left <- ghast_apply_left();
-        return Some(left)
-    }) | Parser::ret(None)
-}
-
 pub fn ghast_master() -> Parser<Ghast> {
     pdo! {
-        // Applyの左再帰を除去した
-        left <- ghast_apply_left();
-        right <- ghast_apply_right();
-        return match right {
-            Some(right) => Ghast::Apply(Box::new(left), Box::new(right)),
-            None => left,
-        }
+        bp <- ghast_binop_right();
+        return Ghast::Binops(bp)
     }
 }
