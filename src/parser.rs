@@ -56,8 +56,19 @@ fn ghast_i32() -> Parser<Ghast> {
     }
 }
 
+fn paren() -> Parser<Ghast> {
+    (pdo! {
+        single('(');
+        whitespace() * ..;
+        content <- paren();
+        whitespace() * ..;
+        single(')');
+        return content
+    }) | (ghast_fn() | ghast_symbol() | ghast_i32())
+}
+
 fn ghast_apply_left() -> Parser<Ghast> {
-    ghast_fn() | ghast_symbol() | ghast_i32()
+    paren()
 }
 
 fn ghast_apply_right() -> Parser<Option<Ghast>> {

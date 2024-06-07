@@ -1,6 +1,7 @@
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
+use inkwell::values::FunctionValue;
 use inkwell::AddressSpace;
 
 use std::error::Error;
@@ -78,12 +79,54 @@ fn translate<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builder: &Buil
                 } else {
                     panic!("未知の関数名です: {}", fname);
                 }
+            } else if let Ghast::Fn(param, body) = func.as_ref() {
+                let lambda = create_lambda(context, module, builder, param, body);
+                let i32_type = context.i32_type();
+
+                // ラムダの呼び出し
+                builder
+                    .build_call(
+                        lambda,
+                        &[i32_type.const_int(0, false).into()],
+                        "lambda_result",
+                    )
+                    .unwrap();
             } else {
                 panic!("関数名の直接指定にしか対応していません");
             }
         }
+
         _ => panic!("工事中。o＠(・_・)＠o。"),
     };
+}
+
+fn create_lambda<'ctx>(
+    context: &'ctx Context,
+    module: &Module<'ctx>,
+    _main_builder: &Builder,
+    _param: &String,
+    body: &Ghast,
+) -> FunctionValue<'ctx> {
+    // ラムダ式を実体化
+
+    let builder = context.create_builder();
+    let i32_type = context.i32_type();
+
+    if let Ghast::I32(value) = body {
+        // define i32 @main() {
+        let func_type = i32_type.fn_type(&[], false);
+        let function = module.add_function("lambda", func_type, None);
+        let basic_block = context.append_basic_block(function, "");
+        builder.position_at_end(basic_block);
+
+        builder
+            .build_return(Some(&i32_type.const_int(*value as u64, false)))
+            .unwrap();
+
+        function
+    } else {
+        panic!("定数関数以外のラムダ式はまだサポートしていません");
+    }
 }
 
 fn print_num<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builder: &Builder, value: i32) {
