@@ -1,11 +1,13 @@
+use std::collections::VecDeque;
+
 use monapa::*;
 
 pub use monapa::ParseError;
 
 #[derive(Clone, Debug)]
-pub struct Binops {
-    terms: Vec<Ghast>,
-    ops: Vec<String>,
+pub struct Binop {
+    terms: VecDeque<Ghast>,
+    ops: VecDeque<String>,
 }
 
 #[allow(dead_code)]
@@ -13,7 +15,7 @@ pub struct Binops {
 pub enum Ghast {
     Symbol(String),
     Fn(String, Box<Ghast>),
-    Binops(Binops),
+    Binop(Binop),
     I32(i32),
 }
 
@@ -47,26 +49,27 @@ fn binop() -> Parser<String> {
     }
 }
 
-fn append_binop_term(left: Ghast, op: String, mut right: Binops) -> Binops {
-    right.terms.push(left);
-    right.ops.push(op);
-    right
-}
-
-fn binops_new(term: Ghast) -> Binops {
-    Binops {
-        terms: vec![term],
-        ops: vec![],
+fn append_binop_term(left: Ghast, op: String, mut right: Ghast) -> Ghast {
+    match right {
+        Ghast::Binop(ref mut binops) => {
+            binops.terms.push_front(left);
+            binops.ops.push_front(op);
+            right
+        }
+        _ => Ghast::Binop(Binop {
+            terms: vec![left, right].into(),
+            ops: vec![op].into(),
+        }),
     }
 }
 
-fn ghast_binop_right() -> Parser<Binops> {
+fn ghast_binop_right() -> Parser<Ghast> {
     (pdo! {
         left <- term();
         op <- binop();
         right <- ghast_binop_right();
         return append_binop_term(left, op, right)
-    }) | term().bind(|t| Parser::ret(binops_new(t)))
+    }) | term()
 }
 
 fn term() -> Parser<Ghast> {
@@ -98,8 +101,5 @@ fn ghast_i32() -> Parser<Ghast> {
 }
 
 pub fn ghast_master() -> Parser<Ghast> {
-    pdo! {
-        bp <- ghast_binop_right();
-        return Ghast::Binops(bp)
-    }
+    ghast_binop_right()
 }
