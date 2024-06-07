@@ -1,13 +1,11 @@
-use std::collections::VecDeque;
-
 use monapa::*;
 
 pub use monapa::ParseError;
 
 #[derive(Clone, Debug)]
 pub struct Binop {
-    terms: VecDeque<Ghast>,
-    ops: VecDeque<String>,
+    terms: Vec<Ghast>,
+    ops: Vec<String>,
 }
 
 #[allow(dead_code)]
@@ -41,39 +39,57 @@ fn literal_digit() -> Parser<char> {
 }
 
 fn binop() -> Parser<String> {
-    pdo! {
+    (pdo! {
         whitespace() * ..;
         op <- single('&');
         whitespace() * ..;
         return op.to_string()
+    }) | pdo! {
+        whitespace() * (1..);
+        return ' '.to_string()
     }
 }
 
-fn append_binop_term(left: Ghast, op: String, mut right: Ghast) -> Ghast {
-    match right {
-        Ghast::Binop(ref mut binops) => {
-            binops.terms.push_front(left);
-            binops.ops.push_front(op);
-            right
-        }
-        _ => Ghast::Binop(Binop {
-            terms: vec![left, right].into(),
-            ops: vec![op].into(),
-        }),
-    }
-}
-
-fn ghast_binop_right() -> Parser<Ghast> {
+fn ghast_binop_rest() -> Parser<Vec<(String, Ghast)>> {
     (pdo! {
-        left <- term();
         op <- binop();
-        right <- ghast_binop_right();
-        return append_binop_term(left, op, right)
-    }) | term()
+        right <- term();
+        return (op, right)
+    } * ..)
+        | Parser::ret(vec![])
+}
+
+fn ghast_binop() -> Parser<Ghast> {
+    pdo! {
+        head <- term();
+        rest <- ghast_binop_rest();
+        return if rest.is_empty() {
+            head
+        } else {
+            let mut terms = vec![head];
+            let mut ops = vec![];
+            for (op, term) in rest {
+                terms.push(term);
+                ops.push(op);
+            }
+            Ghast::Binop(Binop{terms:terms, ops:ops})
+        }
+    }
+}
+
+fn paren() -> Parser<Ghast> {
+    pdo! {
+        single('(');
+        whitespace() * ..;
+        t <- ghast_master();
+        whitespace() * ..;
+        single(')');
+        return t
+    }
 }
 
 fn term() -> Parser<Ghast> {
-    ghast_fn() | ghast_symbol() | ghast_i32()
+    ghast_fn() | ghast_symbol() | ghast_i32() | paren()
 }
 
 fn ghast_symbol() -> Parser<Ghast> {
@@ -101,5 +117,5 @@ fn ghast_i32() -> Parser<Ghast> {
 }
 
 pub fn ghast_master() -> Parser<Ghast> {
-    ghast_binop_right()
+    ghast_binop()
 }
