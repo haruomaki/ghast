@@ -1,3 +1,4 @@
+use crate::operator::available_operators_without_space;
 use monapa::*;
 
 pub use monapa::ParseError;
@@ -13,7 +14,6 @@ pub enum Literal {
     I32(i32),
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Ghast {
     Symbol(String),
@@ -46,12 +46,12 @@ fn literal_digit() -> Parser<char> {
 fn binop() -> Parser<String> {
     (pdo! {
         whitespace() * ..;
-        op <- single('&');
+        op <- choice(available_operators_without_space().into_iter().map(|op| chunk(op)));
         whitespace() * ..;
         return op.to_string()
     }) | pdo! {
         whitespace() * (1..);
-        return ' '.to_string()
+        return " ".to_string()
     }
 }
 
@@ -60,8 +60,7 @@ fn ghast_binop_rest() -> Parser<Vec<(String, Ghast)>> {
         op <- binop();
         right <- term();
         return (op, right)
-    } * ..)
-        | Parser::ret(vec![])
+    }) * ..
 }
 
 fn ghast_binop() -> Parser<Ghast> {

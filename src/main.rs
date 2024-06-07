@@ -8,6 +8,7 @@ use std::error::Error;
 
 mod corelang;
 mod ghast;
+mod operator;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // 入力受け付け
