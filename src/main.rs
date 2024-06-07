@@ -124,8 +124,7 @@ fn create_lambda<'ctx>(
 
 fn print_num<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builder: &Builder, value: i32) {
     let i32_type = context.i32_type();
-    let i8_type = context.i8_type();
-    let i8ptr_type = i8_type.ptr_type(AddressSpace::default());
+    let ptr_type = context.ptr_type(AddressSpace::default());
 
     let format_str = module.get_global("num_format").unwrap_or_else(|| {
         // 初回時に文字列リテラルをグローバル変数として追加
@@ -136,7 +135,7 @@ fn print_num<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builder: &Buil
 
     let fun = module.get_function("printf").unwrap_or_else(|| {
         // declare i32 @printf(ptr, ...)
-        let printf_type = i32_type.fn_type(&[i8ptr_type.into()], true);
+        let printf_type = i32_type.fn_type(&[ptr_type.into()], true);
         module.add_function("printf", printf_type, None)
     });
 

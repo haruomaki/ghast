@@ -6,9 +6,8 @@ fn make_puts_module<'ctx>(context: &'ctx Context, funname: &str) -> Module<'ctx>
     let module = context.create_module("hello_world");
     let builder = context.create_builder();
 
-    let i8_type = context.i8_type();
     let i32_type = context.i32_type();
-    let i8ptr_type = i8_type.ptr_type(AddressSpace::default());
+    let i8ptr_type = context.ptr_type(AddressSpace::default());
 
     // Define the string constant
     let str_constant = context.const_string(b"Hello World!", true);
