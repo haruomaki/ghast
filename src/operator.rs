@@ -1,6 +1,6 @@
 // 演算子の結合方向と比較演算子であるかどうかを定義するための列挙型
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Fixity {
     Left,
     Right,
@@ -53,6 +53,9 @@ pub fn available_operators_without_space() -> Vec<&'static str> {
 }
 
 // 演算子をキーとしてその情報を取得する関数
-pub fn info(op: &str) -> Option<&OperatorInfo> {
-    OPERATORS.iter().find(|&op_info| op_info.op == op)
+pub fn info(op: &str) -> &OperatorInfo {
+    OPERATORS
+        .iter()
+        .find(|&op_info| op_info.op == op)
+        .expect("未知の演算子です")
 }
