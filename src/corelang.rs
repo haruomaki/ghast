@@ -9,6 +9,7 @@ pub enum CoreLang {
     Fn(String, Box<CoreLang>),
     Apply(Box<CoreLang>, Box<CoreLang>),
     Lit(Literal),
+    Tuple(Vec<CoreLang>),
 }
 
 /// Binopを位置pで分割する
@@ -87,8 +88,14 @@ pub fn convert_into_core(ghast: Ghast) -> CoreLang {
                         let fcore = convert_into_core(Ghast::Binop(f));
                         CoreLang::Apply(Box::new(bcore), Box::new(fcore))
                     } else {
-                        panic!("\" \"以外の演算子は未実装です");
-                        // let name = info(binop.ops[pivot]).name;
+                        let name = info(&binop.ops[pivot]).name;
+                        let ncore = CoreLang::Symbol(name.to_string());
+
+                        let (b, f) = split_at(binop, pivot);
+                        let bcore = convert_into_core(Ghast::Binop(b));
+                        let fcore = convert_into_core(Ghast::Binop(f));
+                        let args = CoreLang::Tuple(vec![bcore, fcore]);
+                        CoreLang::Apply(Box::new(ncore), Box::new(args))
                     }
                 }
                 Err(e) => panic!("find_min_precedence_index()でエラー: {:?}", e),
