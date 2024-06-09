@@ -64,6 +64,14 @@ fn find_min_precedence_index(ops: &[String]) -> Result<usize, String> {
     }
 }
 
+// 一変数関数への引数を、要素数1のタプルへ変換する
+fn ensure_tuple(arg: CoreLang) -> CoreLang {
+    match arg {
+        CoreLang::Tuple(_) => arg, // 既にタプルなら何もしない
+        _ => CoreLang::Tuple(vec![arg]),
+    }
+}
+
 pub fn convert_into_core(ghast: Ghast) -> CoreLang {
     match ghast {
         Ghast::Symbol(name) => CoreLang::Symbol(name),
@@ -82,11 +90,11 @@ pub fn convert_into_core(ghast: Ghast) -> CoreLang {
             match pivot {
                 Ok(pivot) => {
                     // " "なら関数適用、それ以外なら関数名を取得し適用
-                    if binop.ops[pivot] == " " {
+                    let (function, arguments) = if binop.ops[pivot] == " " {
                         let (b, f) = split_at(binop, pivot);
                         let bcore = convert_into_core(Ghast::Binop(b));
                         let fcore = convert_into_core(Ghast::Binop(f));
-                        CoreLang::Apply(Box::new(bcore), Box::new(fcore))
+                        (bcore, fcore)
                     } else {
                         let name = info(&binop.ops[pivot]).name;
                         let ncore = CoreLang::Symbol(name.to_string());
@@ -95,8 +103,10 @@ pub fn convert_into_core(ghast: Ghast) -> CoreLang {
                         let bcore = convert_into_core(Ghast::Binop(b));
                         let fcore = convert_into_core(Ghast::Binop(f));
                         let args = CoreLang::Tuple(vec![bcore, fcore]);
-                        CoreLang::Apply(Box::new(ncore), Box::new(args))
-                    }
+                        (ncore, args)
+                    };
+
+                    CoreLang::Apply(Box::new(function), Box::new(ensure_tuple(arguments)))
                 }
                 Err(e) => panic!("find_min_precedence_index()でエラー: {:?}", e),
             }
