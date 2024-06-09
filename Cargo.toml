@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 monapa = { path = "./monapa" }
+pomprt = { path = "./pomprt" }
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = [
     "llvm17-0-prefer-dynamic",
 ] }
-rustyline = "14.0.0"

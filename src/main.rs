@@ -15,15 +15,14 @@ use ghast::{Ghast, Literal, ParseError};
 
 fn main() -> Result<(), Box<dyn Error>> {
     // 入力受け付け
-    let mut rl = rustyline::DefaultEditor::new()?;
-    let input = rl.readline(">> ")?;
+    let input = pomprt::new(">> ").read()?;
 
     let result = ghast::ghast_master().parse(input);
     match result {
         Ok(ghast) => {
             eprintln!("受理🎉 {:?}", ghast);
             let core_ast = corelang::convert_into_core(ghast);
-            eprintln!("コア言語: {:?}", core_ast);
+            eprintln!("コア言語💎 {:?}", core_ast);
 
             let ir = build_main(&core_ast).unwrap();
             print!("{}", ir);
