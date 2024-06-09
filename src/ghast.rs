@@ -122,5 +122,10 @@ fn ghast_lit() -> Parser<Ghast> {
 }
 
 pub fn ghast_master() -> Parser<Ghast> {
-    ghast_binop()
+    pdo! {
+        whitespace() * ..;
+        binop <- ghast_binop();
+        whitespace() * ..;
+        return binop
+    }
 }
