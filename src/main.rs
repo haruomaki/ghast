@@ -84,26 +84,27 @@ fn build_main(ast: CoreLang) -> Result<String, Box<dyn Error>> {
 }
 
 // 一つのCoreLangをコンパイルし、レジスタを作り出す。いまのところレジスタを作るのはリテラルとprintのみ。
-fn translate<'ctx>(ctr: &'ctx CompileController, ast: CoreLang) -> Option<CallSiteValue<'ctx>> {
+fn translate<'ctx>(ctr: &'ctx CompileController, ast: CoreLang) -> CallSiteValue<'ctx> {
     match ast {
         CoreLang::Apply(func, args) => match *args {
-            CoreLang::Tuple(args) => {
-                build_apply(ctr, *func, args);
-                None
-            }
+            CoreLang::Tuple(args) => build_apply(ctr, *func, args),
             _ => panic!("CoreLang::Applyの右辺はタプルである必要があります"),
         },
-        CoreLang::Lit(literal) => Some(embed_literal(ctr, literal)),
+        CoreLang::Lit(literal) => embed_literal(ctr, literal),
 
         _ => panic!("工事中。o＠(・_・)＠o。"),
     }
 }
 
-fn build_apply(ctr: &CompileController, func: CoreLang, args: Vec<CoreLang>) {
+fn build_apply<'ctx>(
+    ctr: &'ctx CompileController,
+    func: CoreLang,
+    args: Vec<CoreLang>,
+) -> CallSiteValue<'ctx> {
     if let CoreLang::Symbol(fname) = func {
         if fname == "print" {
             let arg = args.into_iter().next().unwrap(); // 1つ目の引数を抽出
-            print_num(ctr, arg);
+            print_num(ctr, arg)
         } else if fname == "add" {
             panic!("addですね");
         } else {
@@ -120,9 +121,9 @@ fn build_apply(ctr: &CompileController, func: CoreLang, args: Vec<CoreLang>) {
                 &[i32_type.const_int(0, false).into()],
                 "lambda_result",
             )
-            .unwrap();
+            .unwrap()
     } else {
-        panic!("関数名の直接指定にしか対応していません");
+        panic!("Applyの左辺は非対応の種類です");
     }
 }
 
@@ -173,13 +174,7 @@ fn print_num<'ctx>(ctr: &'ctx CompileController, arg: CoreLang) -> CallSiteValue
         module.add_function("printf", printf_type, None)
     });
 
-    // if let CoreLang::Lit(Literal::I32(value)) = args[0] {
-    //     print_num(ctr, value);
-    // } else {
-    //     panic!("printの引数が数値ではありません");
-    // }
-
-    let arg_site = translate(&ctr, arg).expect("printfに渡す変数が生成されませんでした");
+    let arg_site = translate(&ctr, arg);
 
     // printfの呼び出し
     builder
