@@ -1,7 +1,7 @@
 use corelang::CoreLang;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::module::Module;
+use inkwell::module::{Linkage, Module};
 use inkwell::values::{CallSiteValue, FunctionValue};
 use inkwell::AddressSpace;
 
@@ -83,25 +83,27 @@ fn build_main(ast: CoreLang) -> Result<String, Box<dyn Error>> {
     Ok(module.print_to_string().to_string())
 }
 
-fn translate(ctr: &CompileController, ast: CoreLang) {
+// 一つのCoreLangをコンパイルし、レジスタを作り出す。いまのところレジスタを作るのはリテラルとprintのみ。
+fn translate<'ctx>(ctr: &'ctx CompileController, ast: CoreLang) -> Option<CallSiteValue<'ctx>> {
     match ast {
-        CoreLang::Apply(func, args) => match args.as_ref() {
-            CoreLang::Tuple(args) => build_apply(ctr, *func, args),
+        CoreLang::Apply(func, args) => match *args {
+            CoreLang::Tuple(args) => {
+                build_apply(ctr, *func, args);
+                None
+            }
             _ => panic!("CoreLang::Applyの右辺はタプルである必要があります"),
         },
+        CoreLang::Lit(literal) => Some(embed_literal(ctr, literal)),
 
         _ => panic!("工事中。o＠(・_・)＠o。"),
-    };
+    }
 }
 
-fn build_apply(ctr: &CompileController, func: CoreLang, args: &[CoreLang]) {
+fn build_apply(ctr: &CompileController, func: CoreLang, args: Vec<CoreLang>) {
     if let CoreLang::Symbol(fname) = func {
         if fname == "print" {
-            if let CoreLang::Lit(Literal::I32(value)) = args[0] {
-                print_num(ctr, value);
-            } else {
-                panic!("printの引数が数値ではありません");
-            }
+            let arg = args.into_iter().next().unwrap(); // 1つ目の引数を抽出
+            print_num(ctr, arg);
         } else if fname == "add" {
             panic!("addですね");
         } else {
@@ -151,7 +153,8 @@ fn create_lambda<'ctx>(
     }
 }
 
-fn print_num<'ctx>(ctr: &'ctx CompileController, value: i32) -> CallSiteValue<'ctx> {
+// 一引数のprintfの呼び出しを生成
+fn print_num<'ctx>(ctr: &'ctx CompileController, arg: CoreLang) -> CallSiteValue<'ctx> {
     let module = &ctr.module;
     let builder = &ctr.builder;
     let i32_type = ctr.context.i32_type();
@@ -170,15 +173,55 @@ fn print_num<'ctx>(ctr: &'ctx CompileController, value: i32) -> CallSiteValue<'c
         module.add_function("printf", printf_type, None)
     });
 
+    // if let CoreLang::Lit(Literal::I32(value)) = args[0] {
+    //     print_num(ctr, value);
+    // } else {
+    //     panic!("printの引数が数値ではありません");
+    // }
+
+    let arg_site = translate(&ctr, arg).expect("printfに渡す変数が生成されませんでした");
+
     // printfの呼び出し
     builder
         .build_call(
             fun,
             &[
                 format_str.as_pointer_value().into(),
-                i32_type.const_int(value as u64, false).into(),
+                arg_site.try_as_basic_value().left().unwrap().into(),
             ],
             "printf_result",
         )
         .unwrap()
+}
+
+fn embed_literal<'ctx>(ctr: &'ctx CompileController, literal: Literal) -> CallSiteValue<'ctx> {
+    match literal {
+        Literal::I32(value) => {
+            let module = &ctr.module;
+            let builder = &ctr.builder;
+            let i32_type = ctr.context.i32_type();
+            let fn_type = i32_type.fn_type(&[i32_type.into()], false);
+
+            let idfunc = module.get_function("id_i32").unwrap_or_else(|| {
+                // 恒等関数「id_i32」を生成
+                let function: FunctionValue =
+                    module.add_function("id_i32", fn_type, Some(Linkage::Private));
+                let entry = ctr.context.append_basic_block(function, "");
+                let builder = ctr.context.create_builder();
+                builder.position_at_end(entry);
+                let x_value = function.get_first_param().unwrap().into_int_value(); // 引数を取得しそのまま返す
+                builder.build_return(Some(&x_value)).unwrap();
+                function
+            });
+
+            // 「id_i32」の呼び出し
+            builder
+                .build_call(
+                    idfunc,
+                    &[i32_type.const_int(value as u64, false).into()],
+                    "litc",
+                )
+                .unwrap()
+        } // _ => panic!("I32以外のリテラルの埋め込みは未実装です"),
+    }
 }
