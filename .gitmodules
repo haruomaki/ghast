@@ -1,6 +1,6 @@
 [submodule "monapa"]
 	path = monapa
-	url = git@github.com:haruomaki/monapa.git
+	url = git@codeberg.org:haruomaki/monapa.git
 [submodule "pomprt"]
 	path = pomprt
 	url = git@codeberg.org:haruomaki/pomprt.git
