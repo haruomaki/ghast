@@ -20,6 +20,7 @@ pub enum Ghast {
     Fn(String, Box<Ghast>),
     Binop(Binop),
     Lit(Literal),
+    Tuple(Vec<Ghast>),
 }
 
 fn id_start() -> Parser<char> {
@@ -93,7 +94,8 @@ fn paren() -> Parser<Ghast> {
 }
 
 fn term() -> Parser<Ghast> {
-    ghast_fn() | ghast_symbol() | ghast_lit() | paren()
+    // (foo) is a value, (foo,) is a tuple
+    ghast_fn() | ghast_symbol() | ghast_lit() | paren() | ghast_tuple()
 }
 
 fn ghast_symbol() -> Parser<Ghast> {
@@ -118,6 +120,27 @@ fn ghast_lit() -> Parser<Ghast> {
         num <- literal_digit() * (1..);
         let num_str = num.iter().collect::<String>();
         return Ghast::Lit(Literal::I32(num_str.parse().unwrap()))
+    }
+}
+
+fn tuple_tail() -> Parser<Option<Ghast>> {
+    ghast_master().map(|g| Some(g)).choice(Parser::ret(None))
+}
+
+fn ghast_tuple() -> Parser<Ghast> {
+    pdo! {
+        single('(');
+        gs <- (pdo! {
+            g <- ghast_master();
+            single(',');
+            return g
+        }) * ..;
+        tail <- tuple_tail();
+        single(')');
+        return Ghast::Tuple(match tail{
+            Some(g) => [gs, vec![g]].concat(),
+            _ => gs,
+        })
     }
 }
 

@@ -77,6 +77,9 @@ pub fn convert_into_core(ghast: Ghast) -> CoreLang {
         Ghast::Symbol(name) => CoreLang::Symbol(name),
         Ghast::Fn(param, body) => CoreLang::Fn(param, Box::new(convert_into_core(*body))),
         Ghast::Lit(literal) => CoreLang::Lit(literal),
+        Ghast::Tuple(elems) => {
+            CoreLang::Tuple(elems.into_iter().map(|e| convert_into_core(e)).collect())
+        }
         Ghast::Binop(binop) => {
             // 優先度の低い順に、左結合なら右から、右結合なら左から探索していく。
             // 今のところ演算子は" "だけ。左結合なので右から探索。
