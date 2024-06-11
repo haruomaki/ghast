@@ -2,7 +2,7 @@ use corelang::CoreLang;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::{Linkage, Module};
-use inkwell::values::{CallSiteValue, FunctionValue};
+use inkwell::values::{AnyValue, AnyValueEnum, FunctionValue};
 use inkwell::AddressSpace;
 
 use std::error::Error;
@@ -28,6 +28,14 @@ impl<'ctx> CompileController<'ctx> {
             context,
             module: context.create_module(module_name.as_ref()),
             builder: context.create_builder(),
+        }
+    }
+
+    pub fn with(&self, builder: Builder<'ctx>) -> Self {
+        CompileController {
+            context: self.context,
+            module: self.module.clone(),
+            builder,
         }
     }
 }
@@ -84,7 +92,7 @@ fn build_main(ast: CoreLang) -> Result<String, Box<dyn Error>> {
 }
 
 // 一つのCoreLangをコンパイルし、レジスタを作り出す。いまのところレジスタを作るのはリテラルとprintのみ。
-fn translate<'ctx>(ctr: &'ctx CompileController, ast: CoreLang) -> CallSiteValue<'ctx> {
+fn translate<'ctx>(ctr: &'ctx CompileController, ast: CoreLang) -> AnyValueEnum<'ctx> {
     match ast {
         CoreLang::Apply(func, args) => match *args {
             CoreLang::Tuple(args) => build_apply(ctr, *func, args),
@@ -100,7 +108,7 @@ fn build_apply<'ctx>(
     ctr: &'ctx CompileController,
     func: CoreLang,
     args: Vec<CoreLang>,
-) -> CallSiteValue<'ctx> {
+) -> AnyValueEnum<'ctx> {
     if let CoreLang::Symbol(fname) = func {
         if fname == "print" {
             let arg = args.into_iter().next().unwrap(); // 1つ目の引数を抽出
@@ -122,6 +130,9 @@ fn build_apply<'ctx>(
                 "lambda_result",
             )
             .unwrap()
+            .try_as_basic_value()
+            .unwrap_left()
+            .as_any_value_enum()
     } else {
         panic!("Applyの左辺は非対応の種類です");
     }
@@ -137,25 +148,35 @@ fn create_lambda<'ctx>(
     let builder = ctr.context.create_builder();
     let i32_type = ctr.context.i32_type();
 
-    if let CoreLang::Lit(Literal::I32(value)) = body {
-        // define i32 @main() {
-        let func_type = i32_type.fn_type(&[], false);
-        let function = ctr.module.add_function("lambda", func_type, None);
-        let basic_block = ctr.context.append_basic_block(function, "");
-        builder.position_at_end(basic_block);
+    // define i32 @lambda() {
+    let func_type = i32_type.fn_type(&[], false);
+    let function = ctr
+        .module
+        .add_function("lambda", func_type, Some(Linkage::Private));
+    let basic_block = ctr.context.append_basic_block(function, "");
+    builder.position_at_end(basic_block);
 
-        builder
-            .build_return(Some(&i32_type.const_int(value as u64, false)))
-            .unwrap();
+    // FIXME: 関数内を指すbuidlerを渡さなければいけない
+    let body_site = translate(ctr, body);
 
-        function
-    } else {
-        panic!("定数関数以外のラムダ式はまだサポートしていません");
-    }
+    let ret = body_site;
+    match ret {
+        inkwell::values::AnyValueEnum::IntValue(v) => builder.build_return(Some(&v)).unwrap(),
+        _ => panic!("関数本体の型がInt以外です"),
+    };
+
+    function
+
+    // let fp_value = function.as_global_value().as_pointer_value();
+    // let fp_type = fp_value.get_type();
+    // ctr.builder
+    //     .build_bit_cast(fp_value, fp_type, "lambdap")
+    //     .unwrap()
+    // fp_value.into()
 }
 
 // 一引数のprintfの呼び出しを生成
-fn print_num<'ctx>(ctr: &'ctx CompileController, arg: CoreLang) -> CallSiteValue<'ctx> {
+fn print_num<'ctx>(ctr: &'ctx CompileController, arg: CoreLang) -> AnyValueEnum<'ctx> {
     let module = &ctr.module;
     let builder = &ctr.builder;
     let i32_type = ctr.context.i32_type();
@@ -174,22 +195,25 @@ fn print_num<'ctx>(ctr: &'ctx CompileController, arg: CoreLang) -> CallSiteValue
         module.add_function("printf", printf_type, None)
     });
 
-    let arg_site = translate(&ctr, arg);
+    let arg_value = translate(&ctr, arg);
 
     // printfの呼び出し
-    builder
-        .build_call(
-            fun,
-            &[
-                format_str.as_pointer_value().into(),
-                arg_site.try_as_basic_value().left().unwrap().into(),
-            ],
-            "printf_result",
-        )
-        .unwrap()
+    match arg_value {
+        AnyValueEnum::IntValue(v) => builder
+            .build_call(
+                fun,
+                &[format_str.as_pointer_value().into(), v.into()],
+                "printf_result",
+            )
+            .unwrap()
+            .try_as_basic_value()
+            .unwrap_left()
+            .as_any_value_enum(),
+        _ => panic!("printfの引数がIntではありません"),
+    }
 }
 
-fn embed_literal<'ctx>(ctr: &'ctx CompileController, literal: Literal) -> CallSiteValue<'ctx> {
+fn embed_literal<'ctx>(ctr: &'ctx CompileController, literal: Literal) -> AnyValueEnum<'ctx> {
     match literal {
         Literal::I32(value) => {
             let module = &ctr.module;
@@ -217,6 +241,9 @@ fn embed_literal<'ctx>(ctr: &'ctx CompileController, literal: Literal) -> CallSi
                     "litc",
                 )
                 .unwrap()
+                .try_as_basic_value()
+                .unwrap_left()
+                .as_any_value_enum()
         } // _ => panic!("I32以外のリテラルの埋め込みは未実装です"),
     }
 }
