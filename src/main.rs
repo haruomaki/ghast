@@ -2,7 +2,7 @@ use corelang::CoreLang;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::{Linkage, Module};
-use inkwell::values::{AnyValue, AnyValueEnum, FunctionValue};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue};
 use inkwell::AddressSpace;
 
 use std::error::Error;
@@ -135,10 +135,9 @@ fn build_apply<'ctx>(
             .unwrap()
             .try_as_basic_value();
 
-        // FIXME: 戻り値がvoidなら空の構造体を返すようにする
-        let i32_type = ctr.context.i32_type();
-        ret.left_or(i32_type.const_int(888, false).into())
-            .as_any_value_enum()
+        let nil_type = ctr.context.struct_type(&[], false);
+        let nil_value = nil_type.const_named_struct(&[]);
+        ret.left_or(nil_value.into()).as_any_value_enum()
     } else {
         panic!("Applyの左辺がFunctionValueでありません");
     }
@@ -178,20 +177,10 @@ fn create_lambda<'ctx>(
     let inner_ctr = ctr.with(builder.clone());
     let body_site = translate(&inner_ctr, body);
 
-    let ret = body_site;
-    match ret {
-        inkwell::values::AnyValueEnum::IntValue(v) => builder.build_return(Some(&v)).unwrap(),
-        _ => panic!("関数本体の型がInt以外です"),
-    };
+    let ret: BasicValueEnum = body_site.try_into().expect("関数本体の型が不正です");
+    builder.build_return(Some(&ret)).unwrap();
 
     function
-
-    // let fp_value = function.as_global_value().as_pointer_value();
-    // let fp_type = fp_value.get_type();
-    // ctr.builder
-    //     .build_bit_cast(fp_value, fp_type, "lambdap")
-    //     .unwrap()
-    // fp_value.into()
 }
 
 // 整数を1つ表示するprint関数を生成
