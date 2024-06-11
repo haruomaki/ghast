@@ -95,6 +95,11 @@ fn build_main(ast: CoreLang) -> Result<String, Box<dyn Error>> {
 // 一つのCoreLangをコンパイルし、レジスタを作り出す。いまのところレジスタを作るのはリテラルとprintのみ。
 fn translate<'ctx>(ctr: &'ctx CompileController, ast: CoreLang) -> AnyValueEnum<'ctx> {
     match ast {
+        CoreLang::Symbol(name) => match name.as_str() {
+            "print" => create_print(ctr).as_any_value_enum(),
+            "add" => panic!("addですね"),
+            _ => panic!("未知のシンボルです"),
+        },
         CoreLang::Fn(param, body) => create_lambda(ctr, param, *body).as_any_value_enum(),
         CoreLang::Apply(func, args) => match *args {
             CoreLang::Tuple(args) => build_apply(ctr, *func, args),
@@ -120,15 +125,19 @@ fn build_apply<'ctx>(
     let avalue = translate(ctr, arg);
 
     if let AnyValueEnum::FunctionValue(f) = fvalue {
-        ctr.builder
+        let ret = ctr
+            .builder
             .build_call(
                 f,
                 &[avalue.try_into().expect("Applyの左辺が無効値です")],
                 "lambda_result",
             )
             .unwrap()
-            .try_as_basic_value()
-            .unwrap_left()
+            .try_as_basic_value();
+
+        // FIXME: 戻り値がvoidなら空の構造体を返すようにする
+        let i32_type = ctr.context.i32_type();
+        ret.left_or(i32_type.const_int(888, false).into())
             .as_any_value_enum()
     } else {
         panic!("Applyの左辺がFunctionValueでありません");
@@ -185,13 +194,23 @@ fn create_lambda<'ctx>(
     // fp_value.into()
 }
 
-// 一引数のprintfの呼び出しを生成
-fn print_num<'ctx>(ctr: &'ctx CompileController, arg: CoreLang) -> AnyValueEnum<'ctx> {
+// 整数を1つ表示するprint関数を生成
+fn create_print<'ctx>(ctr: &'ctx CompileController) -> FunctionValue<'ctx> {
     let module = &ctr.module;
-    let builder = &ctr.builder;
+    let builder = &ctr.context.create_builder();
     let i32_type = ctr.context.i32_type();
+    let void_type = ctr.context.void_type();
     let ptr_type = ctr.context.ptr_type(AddressSpace::default());
 
+    if let Some(f) = module.get_function("print") {
+        return f;
+    }
+
+    // define i32 @print(i32) { ...
+    let func_type = void_type.fn_type(&[i32_type.into()], false);
+    let function = module.add_function("print", func_type, Some(Linkage::Private));
+    let basic_block = ctr.context.append_basic_block(function, "");
+    builder.position_at_end(basic_block);
     let format_str = module.get_global("num_format").unwrap_or_else(|| {
         // 初回時に文字列リテラルをグローバル変数として追加
         builder
@@ -205,22 +224,23 @@ fn print_num<'ctx>(ctr: &'ctx CompileController, arg: CoreLang) -> AnyValueEnum<
         module.add_function("printf", printf_type, None)
     });
 
-    let arg_value = translate(&ctr, arg);
+    let v = function.get_first_param().unwrap().into_int_value();
 
     // printfの呼び出し
-    match arg_value {
-        AnyValueEnum::IntValue(v) => builder
-            .build_call(
-                fun,
-                &[format_str.as_pointer_value().into(), v.into()],
-                "printf_result",
-            )
-            .unwrap()
-            .try_as_basic_value()
-            .unwrap_left()
-            .as_any_value_enum(),
-        _ => panic!("printfの引数がIntではありません"),
-    }
+    builder
+        .build_call(
+            fun,
+            &[format_str.as_pointer_value().into(), v.into()],
+            "printf_result",
+        )
+        .unwrap()
+        .try_as_basic_value()
+        .unwrap_left()
+        .as_any_value_enum();
+
+    builder.build_return(None).unwrap();
+
+    function
 }
 
 fn embed_literal<'ctx>(ctr: &'ctx CompileController, literal: Literal) -> AnyValueEnum<'ctx> {
