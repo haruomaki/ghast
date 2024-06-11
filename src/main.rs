@@ -95,6 +95,7 @@ fn build_main(ast: CoreLang) -> Result<String, Box<dyn Error>> {
 // 一つのCoreLangをコンパイルし、レジスタを作り出す。いまのところレジスタを作るのはリテラルとprintのみ。
 fn translate<'ctx>(ctr: &'ctx CompileController, ast: CoreLang) -> AnyValueEnum<'ctx> {
     match ast {
+        CoreLang::Fn(param, body) => create_lambda(ctr, param, *body).as_any_value_enum(),
         CoreLang::Apply(func, args) => match *args {
             CoreLang::Tuple(args) => build_apply(ctr, *func, args),
             _ => panic!("CoreLang::Applyの右辺はタプルである必要があります"),
@@ -110,24 +111,19 @@ fn build_apply<'ctx>(
     func: CoreLang,
     args: Vec<CoreLang>,
 ) -> AnyValueEnum<'ctx> {
-    if let CoreLang::Symbol(fname) = func {
-        if fname == "print" {
-            let arg = args.into_iter().next().unwrap(); // 1つ目の引数を抽出
-            print_num(ctr, arg)
-        } else if fname == "add" {
-            panic!("addですね");
-        } else {
-            panic!("未知の関数名です: {}", fname);
-        }
-    } else if let CoreLang::Fn(param, body) = func {
-        let lambda = create_lambda(ctr, param, *body);
-        let i32_type = ctr.context.i32_type();
+    let fvalue = translate(ctr, func);
 
-        // ラムダの呼び出し
+    let arg = args
+        .into_iter()
+        .next()
+        .expect("関数適用は1引数だけ対応です");
+    let avalue = translate(ctr, arg);
+
+    if let AnyValueEnum::FunctionValue(f) = fvalue {
         ctr.builder
             .build_call(
-                lambda,
-                &[i32_type.const_int(0, false).into()],
+                f,
+                &[avalue.try_into().expect("Applyの左辺が無効値です")],
                 "lambda_result",
             )
             .unwrap()
@@ -135,8 +131,21 @@ fn build_apply<'ctx>(
             .unwrap_left()
             .as_any_value_enum()
     } else {
-        panic!("Applyの左辺は非対応の種類です");
+        panic!("Applyの左辺がFunctionValueでありません");
     }
+
+    // if let CoreLang::Symbol(fname) = func {
+    //     if fname == "print" {
+    //         let arg = args.into_iter().next().unwrap(); // 1つ目の引数を抽出
+    //         print_num(ctr, arg)
+    //     } else if fname == "add" {
+    //         panic!("addですね");
+    //     } else {
+    //         panic!("未知の関数名です: {}", fname);
+    //     }
+    // } else if let CoreLang::Fn(param, body) = func {
+    //     let lambda = create_lambda(ctr, param, *body);
+    //     let i32_type = ctr.context.i32_type();
 }
 
 fn create_lambda<'ctx>(
