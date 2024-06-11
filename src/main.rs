@@ -6,6 +6,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, FunctionValue};
 use inkwell::AddressSpace;
 
 use std::error::Error;
+use std::rc::Rc;
 
 mod corelang;
 mod ghast;
@@ -17,8 +18,8 @@ use ghast::{Ghast, Literal, ParseError};
 #[derive(Debug)]
 pub struct CompileController<'ctx> {
     pub context: &'ctx Context,
-    pub module: Module<'ctx>,
-    pub builder: Builder<'ctx>,
+    pub module: Rc<Module<'ctx>>,
+    pub builder: Rc<Builder<'ctx>>,
 }
 
 impl<'ctx> CompileController<'ctx> {
@@ -26,12 +27,12 @@ impl<'ctx> CompileController<'ctx> {
     pub fn new(context: &'ctx Context, module_name: impl AsRef<str>) -> Self {
         CompileController {
             context,
-            module: context.create_module(module_name.as_ref()),
-            builder: context.create_builder(),
+            module: Rc::new(context.create_module(module_name.as_ref())),
+            builder: Rc::new(context.create_builder()),
         }
     }
 
-    pub fn with(&self, builder: Builder<'ctx>) -> Self {
+    pub fn with(&self, builder: Rc<Builder<'ctx>>) -> Self {
         CompileController {
             context: self.context,
             module: self.module.clone(),
@@ -145,7 +146,7 @@ fn create_lambda<'ctx>(
 ) -> FunctionValue<'ctx> {
     // ラムダ式を実体化
 
-    let builder = ctr.context.create_builder();
+    let builder = Rc::new(ctr.context.create_builder());
     let i32_type = ctr.context.i32_type();
 
     // define i32 @lambda() {
@@ -156,8 +157,8 @@ fn create_lambda<'ctx>(
     let basic_block = ctr.context.append_basic_block(function, "");
     builder.position_at_end(basic_block);
 
-    // FIXME: 関数内を指すbuidlerを渡さなければいけない
-    let body_site = translate(ctr, body);
+    let inner_ctr = ctr.with(builder.clone());
+    let body_site = translate(&inner_ctr, body);
 
     let ret = body_site;
     match ret {
