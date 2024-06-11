@@ -246,34 +246,8 @@ fn create_print<'ctx>(ctr: &'ctx CompileController) -> FunctionValue<'ctx> {
 fn embed_literal<'ctx>(ctr: &'ctx CompileController, literal: Literal) -> AnyValueEnum<'ctx> {
     match literal {
         Literal::I32(value) => {
-            let module = &ctr.module;
-            let builder = &ctr.builder;
             let i32_type = ctr.context.i32_type();
-            let fn_type = i32_type.fn_type(&[i32_type.into()], false);
-
-            let idfunc = module.get_function("id_i32").unwrap_or_else(|| {
-                // 恒等関数「id_i32」を生成
-                let function: FunctionValue =
-                    module.add_function("id_i32", fn_type, Some(Linkage::Private));
-                let entry = ctr.context.append_basic_block(function, "");
-                let builder = ctr.context.create_builder();
-                builder.position_at_end(entry);
-                let x_value = function.get_first_param().unwrap().into_int_value(); // 引数を取得しそのまま返す
-                builder.build_return(Some(&x_value)).unwrap();
-                function
-            });
-
-            // 「id_i32」の呼び出し
-            builder
-                .build_call(
-                    idfunc,
-                    &[i32_type.const_int(value as u64, false).into()],
-                    "litc",
-                )
-                .unwrap()
-                .try_as_basic_value()
-                .unwrap_left()
-                .as_any_value_enum()
+            i32_type.const_int(value as u64, false).as_any_value_enum()
         } // _ => panic!("I32以外のリテラルの埋め込みは未実装です"),
     }
 }
