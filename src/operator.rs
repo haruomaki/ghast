@@ -9,6 +9,8 @@ pub enum Fixity {
     None,
 }
 
+pub const APPLY_NAME: &str = "APPLY";
+
 // 演算子の情報を保持する構造体
 #[derive(Debug)]
 pub struct OperatorInfo {
@@ -33,8 +35,8 @@ pub const OPERATORS: &[OperatorInfo] = &[
         precedence: 10,
     },
     OperatorInfo {
-        op: " ",
-        name: "APPLY",
+        op: "",
+        name: APPLY_NAME,
         fixity: Fixity::Left,
         precedence: 300,
     },

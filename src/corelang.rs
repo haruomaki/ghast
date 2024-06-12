@@ -92,8 +92,12 @@ pub fn convert_into_core(ghast: Ghast) -> CoreLang {
             let pivot = find_min_precedence_index(&binop.ops);
             match pivot {
                 Ok(pivot) => {
-                    // " "なら関数適用、それ以外なら関数名を取得し適用
-                    let (function, arguments) = if binop.ops[pivot] == " " {
+                    // "APPLY"なら関数適用、それ以外なら関数名を取得し適用
+                    let apply_info = OPERATORS
+                        .iter()
+                        .find(|opinfo| opinfo.name == APPLY_NAME)
+                        .unwrap();
+                    let (function, arguments) = if binop.ops[pivot] == apply_info.op {
                         let (b, f) = split_at(binop, pivot);
                         let bcore = convert_into_core(Ghast::Binop(b));
                         let fcore = convert_into_core(Ghast::Binop(f));
