@@ -2,6 +2,7 @@ use corelang::CoreLang;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::{Linkage, Module};
+use inkwell::types::BasicTypeEnum;
 use inkwell::values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue};
 use inkwell::AddressSpace;
 
@@ -106,8 +107,7 @@ fn translate<'ctx>(ctr: &'ctx CompileController, ast: CoreLang) -> AnyValueEnum<
             _ => panic!("CoreLang::Applyの右辺はタプルである必要があります"),
         },
         CoreLang::Lit(literal) => embed_literal(ctr, literal),
-
-        _ => panic!("工事中。o＠(・_・)＠o。"),
+        CoreLang::Tuple(elems) => build_tuple(ctr, elems),
     }
 }
 
@@ -239,4 +239,22 @@ fn embed_literal<'ctx>(ctr: &'ctx CompileController, literal: Literal) -> AnyVal
             i32_type.const_int(value as u64, false).as_any_value_enum()
         } // _ => panic!("I32以外のリテラルの埋め込みは未実装です"),
     }
+}
+
+fn build_tuple<'ctx>(ctr: &'ctx CompileController, elems: Vec<CoreLang>) -> AnyValueEnum<'ctx> {
+    let rets: Vec<BasicValueEnum> = elems
+        .into_iter()
+        .map(|elem| {
+            let any_value = translate(ctr, elem);
+            let basic_value = any_value
+                .try_into()
+                .expect("タプルの要素がBasicValueに変換できません");
+            basic_value
+        })
+        .collect();
+    let types: Vec<BasicTypeEnum> = rets.iter().map(|r| r.get_type()).collect();
+
+    let tuple_type = ctr.context.struct_type(&types, false);
+    let tuple_value = tuple_type.const_named_struct(&rets);
+    tuple_value.as_any_value_enum()
 }
