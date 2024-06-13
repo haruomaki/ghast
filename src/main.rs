@@ -10,6 +10,7 @@ use std::error::Error;
 use std::rc::Rc;
 
 mod corelang;
+mod coretype;
 mod ghast;
 mod operator;
 

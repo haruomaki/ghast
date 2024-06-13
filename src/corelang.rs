@@ -1,5 +1,6 @@
 use crate::ghast::{Binop, Ghast, Literal};
 use crate::operator::*;
+use crate::sig;
 
 use std::collections::HashSet;
 
@@ -19,6 +20,7 @@ pub enum CoreType {
     I32,
     Fn(Box<CoreType>, Box<CoreType>),
     Tuple(Vec<CoreType>),
+    Nil,
 }
 
 pub type Core = (CoreValue, CoreType);
@@ -85,16 +87,28 @@ fn ensure_tuple(arg: Core) -> Core {
 
 pub fn convert_into_core(ghast: Ghast) -> Core {
     match ghast {
-        Ghast::Symbol(name) => (CoreValue::Symbol(name), CoreType::Unknown),
-        Ghast::Fn(param, body) => (
-            CoreValue::Fn(param, Box::new(convert_into_core(*body))),
-            CoreType::Unknown,
-        ),
-        Ghast::Lit(literal) => (CoreValue::Lit(literal), CoreType::Unknown),
-        Ghast::Tuple(elems) => (
-            CoreValue::Tuple(elems.into_iter().map(|e| convert_into_core(e)).collect()),
-            CoreType::Unknown,
-        ),
+        Ghast::Symbol(name) => {
+            let ty = match name.as_str() {
+                "print" => sig! {I32 -> ()},
+                "add" => sig! {(I32, I32) -> I32},
+                _ => CoreType::Unknown,
+            };
+            (CoreValue::Symbol(name), ty)
+        }
+        Ghast::Fn(param, body) => {
+            let (val, ty) = convert_into_core(*body);
+            let bcore = (val, ty.clone());
+            (CoreValue::Fn(param, Box::new(bcore)), ty)
+        }
+        Ghast::Lit(literal) => {
+            let ty = literal.get_type();
+            (CoreValue::Lit(literal), ty)
+        }
+        Ghast::Tuple(elems) => {
+            let vals: Vec<Core> = elems.into_iter().map(|e| convert_into_core(e)).collect();
+            let tys = vals.iter().map(|v| v.1.clone()).collect();
+            (CoreValue::Tuple(vals), CoreType::Tuple(tys))
+        }
         Ghast::Binop(binop) => {
             // 優先度の低い順に、左結合なら右から、右結合なら左から探索していく。
             // 今のところ演算子は" "だけ。左結合なので右から探索。
@@ -135,6 +149,14 @@ pub fn convert_into_core(ghast: Ghast) -> Core {
                 }
                 Err(e) => panic!("find_min_precedence_index()でエラー: {:?}", e),
             }
+        }
+    }
+}
+
+impl Literal {
+    fn get_type(&self) -> CoreType {
+        match self {
+            Literal::I32(_) => CoreType::I32,
         }
     }
 }
