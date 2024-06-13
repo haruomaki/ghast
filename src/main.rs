@@ -2,8 +2,8 @@ use corelang::CoreLang;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::{Linkage, Module};
-use inkwell::types::BasicTypeEnum;
-use inkwell::values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue};
+use inkwell::types::{AnyTypeEnum, BasicMetadataTypeEnum, BasicTypeEnum};
+use inkwell::values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue, InstructionOpcode};
 use inkwell::AddressSpace;
 
 use std::error::Error;
@@ -258,3 +258,76 @@ fn build_tuple<'ctx>(ctr: &'ctx CompileController, elems: Vec<CoreLang>) -> AnyV
     let tuple_value = tuple_type.const_named_struct(&rets);
     tuple_value.as_any_value_enum()
 }
+
+fn clone_function<'ctx>(
+    ctr: &'ctx CompileController<'ctx>,
+    original_func: FunctionValue<'ctx>,
+    new_func_name: &str,
+    new_return_type: AnyTypeEnum<'ctx>,
+) -> FunctionValue<'ctx> {
+    let func_type = original_func.get_type();
+    let param_types: Vec<BasicMetadataTypeEnum> = func_type
+        .get_param_types()
+        .into_iter()
+        .map(|ty| ty.try_into().unwrap())
+        .collect();
+
+    // 新しい関数型を作成（戻り値の型を変更）
+    // let new_func_type = make_fn_type(new_return_type, param_types);
+    let new_func_type = match new_return_type {
+        AnyTypeEnum::IntType(ret_type) => ret_type.fn_type(&param_types, false),
+        _ => panic!("make_fn_typeしっぱい"),
+    };
+    let new_func = ctr.module.add_function(new_func_name, new_func_type, None);
+
+    // 基本ブロックと命令をコピー
+    let builder = ctr.context.create_builder();
+    for (idx, block) in original_func.get_basic_blocks().into_iter().enumerate() {
+        let new_block = ctr
+            .context
+            .append_basic_block(new_func, &format!("block{}", idx));
+        builder.position_at_end(new_block);
+
+        for instruction in block.get_instructions() {
+            // 終了命令（return等）は後で別途処理するのでスキップ
+            if instruction.is_terminator() {
+                continue;
+            }
+
+            // 命令をクローン
+            builder.insert_instruction(&instruction, None);
+        }
+
+        // 終了命令の処理（戻り値の型変換が必要かもしれない）
+        if let Some(term_inst) = block.get_terminator() {
+            if term_inst.get_opcode() == InstructionOpcode::Return {
+                if let Some(ret_val) = term_inst.get_operand(0) {
+                    // ここで必要に応じて ret_val を new_return_type に変換
+                    // 例: builder.build_bitcast(ret_val, new_return_type, "cast");
+                    builder.build_return(Some(&ret_val.unwrap_left())).unwrap();
+                } else {
+                    builder.build_return(None).unwrap();
+                }
+            } else {
+                // その他の終了命令（分岐など）も適切に処理する必要がある
+                // ...
+            }
+        }
+    }
+
+    // PHIノードの修正（必要な場合）
+    // ...
+
+    new_func
+}
+
+// fn make_fn_type<'ctx>(
+//     ctr: &'ctx CompileController,
+//     return_type: AnyTypeEnum<'ctx>,
+//     param_types: Vec<BasicMetadataTypeEnum<'ctx>>,
+// ) -> FunctionType<'ctx> {
+//     match return_type {
+//         AnyTypeEnum::IntType(ret_type) => ret_type.fn_type(&param_types, false),
+//         _ => panic!("make_fn_typeしっぱい"),
+//     }
+// }
