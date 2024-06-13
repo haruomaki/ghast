@@ -4,13 +4,24 @@ use crate::operator::*;
 use std::collections::HashSet;
 
 #[derive(Clone, Debug)]
-pub enum CoreLang {
+pub enum CoreValue {
     Symbol(String),
-    Fn(String, Box<CoreLang>),
-    Apply(Box<CoreLang>, Box<CoreLang>),
+    Fn(String, Box<Core>),
+    Apply(Box<Core>, Box<Core>),
     Lit(Literal),
-    Tuple(Vec<CoreLang>),
+    Tuple(Vec<Core>),
 }
+
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub enum CoreType {
+    Unknown,
+    I32,
+    Fn(Box<CoreType>, Box<CoreType>),
+    Tuple(Vec<CoreType>),
+}
+
+pub type Core = (CoreValue, CoreType);
 
 /// Binopを位置pで分割する
 fn split_at(binop: Binop, p: usize) -> (Binop, Binop) {
@@ -65,21 +76,25 @@ fn find_min_precedence_index(ops: &[String]) -> Result<usize, String> {
 }
 
 // 一変数関数への引数を、要素数1のタプルへ変換する
-fn ensure_tuple(arg: CoreLang) -> CoreLang {
-    match arg {
-        CoreLang::Tuple(_) => arg, // 既にタプルなら何もしない
-        _ => CoreLang::Tuple(vec![arg]),
+fn ensure_tuple(arg: Core) -> Core {
+    match arg.clone() {
+        (CoreValue::Tuple(_), _) => arg, // 既にタプルなら何もしない
+        (_, ty) => (CoreValue::Tuple(vec![arg]), CoreType::Tuple(vec![ty])),
     }
 }
 
-pub fn convert_into_core(ghast: Ghast) -> CoreLang {
+pub fn convert_into_core(ghast: Ghast) -> Core {
     match ghast {
-        Ghast::Symbol(name) => CoreLang::Symbol(name),
-        Ghast::Fn(param, body) => CoreLang::Fn(param, Box::new(convert_into_core(*body))),
-        Ghast::Lit(literal) => CoreLang::Lit(literal),
-        Ghast::Tuple(elems) => {
-            CoreLang::Tuple(elems.into_iter().map(|e| convert_into_core(e)).collect())
-        }
+        Ghast::Symbol(name) => (CoreValue::Symbol(name), CoreType::Unknown),
+        Ghast::Fn(param, body) => (
+            CoreValue::Fn(param, Box::new(convert_into_core(*body))),
+            CoreType::Unknown,
+        ),
+        Ghast::Lit(literal) => (CoreValue::Lit(literal), CoreType::Unknown),
+        Ghast::Tuple(elems) => (
+            CoreValue::Tuple(elems.into_iter().map(|e| convert_into_core(e)).collect()),
+            CoreType::Unknown,
+        ),
         Ghast::Binop(binop) => {
             // 優先度の低い順に、左結合なら右から、右結合なら左から探索していく。
             // 今のところ演算子は" "だけ。左結合なので右から探索。
@@ -104,16 +119,19 @@ pub fn convert_into_core(ghast: Ghast) -> CoreLang {
                         (bcore, fcore)
                     } else {
                         let name = info(&binop.ops[pivot]).name;
-                        let ncore = CoreLang::Symbol(name.to_string());
+                        let ncore = CoreValue::Symbol(name.to_string());
 
                         let (b, f) = split_at(binop, pivot);
                         let bcore = convert_into_core(Ghast::Binop(b));
                         let fcore = convert_into_core(Ghast::Binop(f));
-                        let args = CoreLang::Tuple(vec![bcore, fcore]);
-                        (ncore, args)
+                        let args = CoreValue::Tuple(vec![bcore, fcore]);
+                        ((ncore, CoreType::Unknown), (args, CoreType::Unknown))
                     };
 
-                    CoreLang::Apply(Box::new(function), Box::new(ensure_tuple(arguments)))
+                    (
+                        CoreValue::Apply(Box::new(function), Box::new(ensure_tuple(arguments))),
+                        CoreType::Unknown,
+                    )
                 }
                 Err(e) => panic!("find_min_precedence_index()でエラー: {:?}", e),
             }

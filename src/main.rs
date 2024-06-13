@@ -1,4 +1,4 @@
-use corelang::CoreLang;
+use corelang::{Core, CoreValue};
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::{Linkage, Module};
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 // https://yhara.jp/2019/06/09/inkwell-hi
-fn build_main(ast: CoreLang) -> Result<String, Box<dyn Error>> {
+fn build_main(ast: Core) -> Result<String, Box<dyn Error>> {
     let context = Context::create();
     let ctr = CompileController::new(&context, "main");
     let module = &ctr.module;
@@ -94,27 +94,27 @@ fn build_main(ast: CoreLang) -> Result<String, Box<dyn Error>> {
 }
 
 // 一つのCoreLangをコンパイルし、レジスタを作り出す。いまのところレジスタを作るのはリテラルとprintのみ。
-fn translate<'ctx>(ctr: &'ctx CompileController, ast: CoreLang) -> AnyValueEnum<'ctx> {
+fn translate<'ctx>(ctr: &'ctx CompileController, ast: Core) -> AnyValueEnum<'ctx> {
     match ast {
-        CoreLang::Symbol(name) => match name.as_str() {
+        (CoreValue::Symbol(name), _) => match name.as_str() {
             "print" => create_print(ctr).as_any_value_enum(),
             "add" => panic!("addですね"),
             _ => panic!("未知のシンボルです"),
         },
-        CoreLang::Fn(param, body) => create_lambda(ctr, param, *body).as_any_value_enum(),
-        CoreLang::Apply(func, args) => match *args {
-            CoreLang::Tuple(args) => build_apply(ctr, *func, args),
+        (CoreValue::Fn(param, body), _) => create_lambda(ctr, param, *body).as_any_value_enum(),
+        (CoreValue::Apply(func, args), _) => match *args {
+            (CoreValue::Tuple(args), _) => build_apply(ctr, *func, args),
             _ => panic!("CoreLang::Applyの右辺はタプルである必要があります"),
         },
-        CoreLang::Lit(literal) => embed_literal(ctr, literal),
-        CoreLang::Tuple(elems) => build_tuple(ctr, elems),
+        (CoreValue::Lit(literal), _) => embed_literal(ctr, literal),
+        (CoreValue::Tuple(elems), _) => build_tuple(ctr, elems),
     }
 }
 
 fn build_apply<'ctx>(
     ctr: &'ctx CompileController,
-    func: CoreLang,
-    args: Vec<CoreLang>,
+    func: Core,
+    args: Vec<Core>,
 ) -> AnyValueEnum<'ctx> {
     let fvalue = translate(ctr, func);
 
@@ -159,7 +159,7 @@ fn build_apply<'ctx>(
 fn create_lambda<'ctx>(
     ctr: &'ctx CompileController,
     _param: String,
-    body: CoreLang,
+    body: Core,
 ) -> FunctionValue<'ctx> {
     // ラムダ式を実体化
 
@@ -241,7 +241,7 @@ fn embed_literal<'ctx>(ctr: &'ctx CompileController, literal: Literal) -> AnyVal
     }
 }
 
-fn build_tuple<'ctx>(ctr: &'ctx CompileController, elems: Vec<CoreLang>) -> AnyValueEnum<'ctx> {
+fn build_tuple<'ctx>(ctr: &'ctx CompileController, elems: Vec<Core>) -> AnyValueEnum<'ctx> {
     let rets: Vec<BasicValueEnum> = elems
         .into_iter()
         .map(|elem| {
