@@ -20,7 +20,6 @@ pub enum CoreType {
     I32,
     Fn(Box<CoreType>, Box<CoreType>),
     Tuple(Vec<CoreType>),
-    Nil,
 }
 
 pub type Core = (CoreValue, CoreType);
@@ -97,8 +96,9 @@ pub fn convert_into_core(ghast: Ghast) -> Core {
         }
         Ghast::Fn(param, body) => {
             let (val, ty) = convert_into_core(*body);
-            let bcore = (val, ty.clone());
-            (CoreValue::Fn(param, Box::new(bcore)), ty)
+            let body_core = (val, ty.clone());
+            let fn_type = CoreType::Fn(Box::new(CoreType::Unknown), Box::new(ty));
+            (CoreValue::Fn(param, Box::new(body_core)), fn_type)
         }
         Ghast::Lit(literal) => {
             let ty = literal.get_type();
@@ -111,7 +111,6 @@ pub fn convert_into_core(ghast: Ghast) -> Core {
         }
         Ghast::Binop(binop) => {
             // 優先度の低い順に、左結合なら右から、右結合なら左から探索していく。
-            // 今のところ演算子は" "だけ。左結合なので右から探索。
 
             if binop.terms.len() == 1 {
                 let term = binop.terms.into_iter().next().expect("termsは長さ1のはず"); // 先頭要素を所有権ごと取得
@@ -127,19 +126,20 @@ pub fn convert_into_core(ghast: Ghast) -> Core {
                         .find(|opinfo| opinfo.name == APPLY_NAME)
                         .unwrap();
                     let (function, arguments) = if binop.ops[pivot] == apply_info.op {
-                        let (b, f) = split_at(binop, pivot);
-                        let bcore = convert_into_core(Ghast::Binop(b));
-                        let fcore = convert_into_core(Ghast::Binop(f));
-                        (bcore, fcore)
+                        let (front, back) = split_at(binop, pivot);
+                        let fcore = convert_into_core(Ghast::Binop(front));
+                        let bcore = convert_into_core(Ghast::Binop(back));
+                        (fcore, bcore)
                     } else {
                         let name = info(&binop.ops[pivot]).name;
                         let ncore = CoreValue::Symbol(name.to_string());
 
-                        let (b, f) = split_at(binop, pivot);
-                        let bcore = convert_into_core(Ghast::Binop(b));
-                        let fcore = convert_into_core(Ghast::Binop(f));
-                        let args = CoreValue::Tuple(vec![bcore, fcore]);
-                        ((ncore, CoreType::Unknown), (args, CoreType::Unknown))
+                        let (front, back) = split_at(binop, pivot);
+                        let fcore = convert_into_core(Ghast::Binop(front));
+                        let bcore = convert_into_core(Ghast::Binop(back));
+                        let atype = CoreType::Tuple(vec![fcore.1.clone(), bcore.1.clone()]);
+                        let args = CoreValue::Tuple(vec![fcore, bcore]);
+                        ((ncore, CoreType::Unknown), (args, atype))
                     };
 
                     (
