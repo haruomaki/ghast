@@ -13,6 +13,7 @@ mod corelang;
 mod coretype;
 mod ghast;
 mod operator;
+mod utils;
 
 use ghast::{Ghast, Literal, ParseError};
 
@@ -53,6 +54,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             eprintln!("受理🎉 {:?}", ghast);
             let core_ast = corelang::convert_into_core(ghast);
             eprintln!("コア言語💎 {:?}", core_ast);
+
+            // 型推論
+            let core_ast = corelang::type_inference(core_ast);
 
             let ir = build_main(core_ast).unwrap();
             print!("{}", ir);
@@ -165,10 +169,10 @@ fn create_lambda<'ctx>(
     // ラムダ式を実体化
 
     let builder = Rc::new(ctr.context.create_builder());
-    let i32_type = ctr.context.i32_type();
 
     // define i32 @lambda() {
-    let func_type = i32_type.fn_type(&[], false);
+    let ret_type = utils::coretype_to_llvm(ctr.context, body.1.clone());
+    let func_type = utils::make_fn_type(ret_type, &vec![]);
     let function = ctr
         .module
         .add_function("lambda", func_type, Some(Linkage::Private));

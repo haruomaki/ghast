@@ -160,3 +160,7 @@ impl Literal {
         }
     }
 }
+
+pub fn type_inference((core_value, core_type): Core) -> Core {
+    (core_value, core_type)
+}
