@@ -247,43 +247,80 @@ impl Literal {
     }
 }
 
-pub fn type_inference((core_value, core_type): Core) -> Result<Core, SemanticError> {
+fn same_or_infer(ty1: &mut CoreType, ty2: &mut CoreType) -> Result<(), ()> {
+    // 2つの型が両方確定していて、かつ異なっていたらエラー
+    if *ty1 != CoreType::Unknown && *ty2 != CoreType::Unknown {
+        if *ty1 != *ty2 {
+            return Err(());
+        }
+    }
+    // どちらもUnknownなら、なにもしない
+    // 実引数と仮引数のどちらかのみがUnknownなら、もう一方の型で推論
+    else {
+        if *ty1 == CoreType::Unknown {
+            *ty1 = ty2.clone();
+        } else {
+            *ty2 = ty1.clone();
+        };
+    }
+    Ok(())
+}
+
+pub fn type_inference((core_value, core_type): &mut Core) -> Result<(), SemanticError> {
     eprintln!("型推論です。{:?} | {:?}", core_value, core_type);
 
-    match core_value.clone() {
+    match core_value {
+        // 関数のbodyの型がC、関数自体の型がA -> Bとする。
+        // CとBの一致性をチェックする。
         CoreValue::Fn(param, body) => {
-            if let CoreType::Fn(param_type, _old_ret_type) = core_type {
+            if let CoreType::Fn(_param_type, ret_type) = core_type {
                 eprintln!(
-                "Fnの型を推論します！ param:{} | body: {:?} が、その前に、bodyの型を確定させます。",
-                param, body
-            );
-                let body = type_inference(*body)?;
-                let ret_type = body.1.clone();
-                eprintln!("Fnの戻り値の型は{:?}になります", ret_type);
-                Ok((
-                    CoreValue::Fn(param, Box::new(body)),
-                    CoreType::Fn(param_type, Box::new(ret_type)),
-                ))
+                    "Fnの型を推論します！ param:{} | body: {:?} が、その前に、bodyの型を確定させます。",
+                    param, body
+                );
+                type_inference(body)?;
+                if same_or_infer(&mut body.1, ret_type).is_err() {
+                    return Err(SemanticError::ReturnTypeMismatch(
+                        body.1.clone(),
+                        *ret_type.clone(),
+                    ));
+                }
+                Ok(())
             } else {
                 panic!("Fnの型がFnでありません");
             }
         }
 
+        // 関数適用可能かどうか確認し、適用結果の型を推論する
+        // より正確には、(A -> B)にCを適用するとDになるとき、A=CかつB=Dであることを確かめる
         CoreValue::Apply(func, arg) => {
             eprintln!("Applyの型を推論します！ func:{:?} | arg: {:?}", func, arg);
-            if let CoreType::Fn(_, ret_type) = (*func).1 {
-                if core_type == CoreType::Unknown {
-                    eprintln!("Unknownだったものを{:?}に推論しました", ret_type);
-                    Ok((core_value, *ret_type))
-                } else {
-                    eprintln!("何もしませんでした");
-                    Ok((core_value, core_type))
+            if let CoreType::Fn(param_type, ret_type) = &mut func.1 {
+                eprintln!(
+                    "まず関数適用可能かどうか確認: {:?}, {:?}",
+                    param_type, arg.1
+                );
+
+                if same_or_infer(param_type, &mut arg.1).is_err() {
+                    return Err(SemanticError::CannotApply(
+                        *param_type.clone(),
+                        arg.1.clone(),
+                    ));
                 }
+
+                if same_or_infer(ret_type, core_type).is_err() {
+                    return Err(SemanticError::ReturnTypeMismatch(
+                        *ret_type.clone(),
+                        core_type.clone(),
+                    ));
+                }
+
+                Ok(())
             } else {
                 // Err(SemanticError::Misc)
                 panic!("Applyの左辺が関数型でありません")
             }
         }
-        _ => Ok((core_value, core_type)),
+        _ => Ok(()),
     }
 }

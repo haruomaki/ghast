@@ -52,11 +52,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     match result {
         Ok(ghast) => {
             eprintln!("受理🎉 {:?}", ghast);
-            let core_ast = corelang::convert_into_core(ghast);
+            let mut core_ast = corelang::convert_into_core(ghast);
             eprintln!("コア言語💎 {:?}", core_ast);
 
             // 型推論
-            let core_ast = corelang::type_inference(core_ast).unwrap();
+            corelang::type_inference(&mut core_ast).unwrap();
             eprintln!("型推論後💎 {:?}", core_ast);
             eprintln!("復元📝 {}", corelang::format_core(&core_ast));
 
@@ -131,6 +131,7 @@ fn build_apply<'ctx>(
         .expect("関数適用は1引数だけ対応です");
     let avalue = translate(ctr, arg);
 
+    eprintln!("fvalue: {}, avalue: {}", fvalue, avalue);
     if let AnyValueEnum::FunctionValue(f) = fvalue {
         let ret = ctr
             .builder

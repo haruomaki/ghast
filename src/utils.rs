@@ -9,7 +9,8 @@ use crate::corelang::CoreType;
 #[derive(Debug)]
 pub enum SemanticError {
     TypeConversionFailed(String),
-    TypeMismatch(CoreType, CoreType),
+    ReturnTypeMismatch(CoreType, CoreType),
+    CannotApply(CoreType, CoreType),
     Misc,
 }
 
