@@ -25,6 +25,86 @@ pub enum CoreType {
 
 pub type Core = (CoreValue, CoreType);
 
+pub fn format_core((core_value, core_type): &Core) -> String {
+    match core_value {
+        CoreValue::Symbol(name) => name.clone(),
+        CoreValue::Fn(param, body) => {
+            let body_str = format_core_value(&body.0);
+            let body_type = format_core_type(&body.1);
+            format!("(\\{} -> {}: {})", param, body_str, body_type)
+        }
+        CoreValue::Apply(func, arg) => format!(
+            "[{}]{} [{}]{} : {}",
+            format_core_type(&func.1),
+            format_core_value(&func.0),
+            format_core_type(&arg.1),
+            format_core_value(&arg.0),
+            format_core_type(core_type),
+        ),
+        CoreValue::Tuple(elems) => {
+            let mut s = "(".to_string();
+            if elems.len() > 0 {
+                for (cv, _ct) in elems {
+                    s += &format!("{}, ", format_core_value(cv));
+                }
+            }
+            s + ")"
+        }
+        CoreValue::Lit(Literal::I32(x)) => {
+            format!("{}", x)
+        }
+    }
+}
+
+pub fn format_core_value(core_value: &CoreValue) -> String {
+    match core_value {
+        CoreValue::Symbol(name) => name.clone(),
+        CoreValue::Fn(param, body) => {
+            let body_str = format_core_value(&body.0);
+            let body_type = format_core_type(&body.1);
+            format!("(\\{} -> {}: {})", param, body_str, body_type)
+        }
+        CoreValue::Apply(func, arg) => format!(
+            "[{}]{} [{}]{}",
+            format_core_type(&func.1),
+            format_core_value(&func.0),
+            format_core_type(&arg.1),
+            format_core_value(&arg.0),
+        ),
+        CoreValue::Tuple(elems) => {
+            let mut s = "(".to_string();
+            if elems.len() > 0 {
+                for (cv, _ct) in elems {
+                    s += &format!("{}, ", format_core_value(cv));
+                }
+            }
+            s + ")"
+        }
+        CoreValue::Lit(Literal::I32(x)) => {
+            format!("{}", x)
+        }
+    }
+}
+
+pub fn format_core_type(core_type: &CoreType) -> String {
+    match core_type {
+        CoreType::I32 => "I32".to_string(),
+        CoreType::Fn(param, body) => {
+            format!("{} -> {}", format_core_type(param), format_core_type(body))
+        }
+        CoreType::Tuple(elems) => {
+            let mut s = "(".to_string();
+            if elems.len() > 0 {
+                for ct in elems {
+                    s += &format!("{}, ", format_core_type(ct));
+                }
+            }
+            s + ")"
+        }
+        CoreType::Unknown => "Unknown".to_string(),
+    }
+}
+
 /// Binopを位置pで分割する
 fn split_at(binop: Binop, p: usize) -> (Binop, Binop) {
     let ops_size = binop.ops.len();
