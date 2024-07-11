@@ -5,17 +5,39 @@ use inkwell::{
 
 use crate::corelang::CoreType;
 
-pub fn coretype_to_llvm<'ctx>(context: &'ctx Context, core_type: CoreType) -> BasicTypeEnum<'ctx> {
+#[allow(dead_code)]
+#[derive(Debug)]
+pub enum SemanticError {
+    TypeConversionFailed(String),
+    TypeMismatch(CoreType, CoreType),
+    Misc,
+}
+
+impl std::fmt::Display for SemanticError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl std::error::Error for SemanticError {}
+
+pub fn coretype_to_llvm<'ctx>(
+    context: &'ctx Context,
+    core_type: CoreType,
+) -> Result<BasicTypeEnum<'ctx>, SemanticError> {
     match core_type {
-        CoreType::I32 => context.i32_type().into(),
+        CoreType::I32 => Ok(context.i32_type().into()),
         CoreType::Tuple(elems) => {
             let types: Vec<_> = elems
                 .into_iter()
-                .map(|elem| coretype_to_llvm(context, elem))
+                .map(|elem| coretype_to_llvm(context, elem).unwrap())
                 .collect();
-            context.struct_type(&types, false).into()
+            Ok(context.struct_type(&types, false).into())
         }
-        _ => panic!("CoreTypeからBasicTypeEnumへ変換できません"),
+        _ => Err(SemanticError::TypeConversionFailed(format!(
+            "CoreTypeからBasicTypeEnumへ変換できません: {:?}",
+            core_type
+        ))),
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::ghast::{Binop, Ghast, Literal};
 use crate::operator::*;
 use crate::sig;
+use crate::utils::SemanticError;
 
 use std::collections::HashSet;
 
@@ -14,7 +15,7 @@ pub enum CoreValue {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CoreType {
     Unknown,
     I32,
@@ -161,6 +162,29 @@ impl Literal {
     }
 }
 
-pub fn type_inference((core_value, core_type): Core) -> Core {
-    (core_value, core_type)
+pub fn type_inference((core_value, core_type): Core) -> Result<Core, SemanticError> {
+    eprintln!("型推論です。{:?} | {:?}", core_value, core_type);
+
+    match core_value.clone() {
+        CoreValue::Fn(param, body) => {
+            eprintln!("Fnの型を推論します！ param:{} | body: {:?}", param, body);
+            Ok((core_value, core_type))
+        }
+        CoreValue::Apply(func, arg) => {
+            eprintln!("Applyの型を推論します！ func:{:?} | arg: {:?}", func, arg);
+            if let CoreType::Fn(_, ret_type) = (*func).1 {
+                if core_type == CoreType::Unknown {
+                    eprintln!("Unknownだったものを{:?}に推論しました", ret_type);
+                    Ok((core_value, *ret_type))
+                } else {
+                    eprintln!("何もしませんでした");
+                    Ok((core_value, core_type))
+                }
+            } else {
+                // Err(SemanticError::Misc)
+                panic!("Applyの左辺が関数型でありません")
+            }
+        }
+        _ => Ok((core_value, core_type)),
+    }
 }

@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             eprintln!("コア言語💎 {:?}", core_ast);
 
             // 型推論
-            let core_ast = corelang::type_inference(core_ast);
+            let core_ast = corelang::type_inference(core_ast).unwrap();
 
             let ir = build_main(core_ast).unwrap();
             print!("{}", ir);
@@ -171,7 +171,7 @@ fn create_lambda<'ctx>(
     let builder = Rc::new(ctr.context.create_builder());
 
     // define i32 @lambda() {
-    let ret_type = utils::coretype_to_llvm(ctr.context, body.1.clone());
+    let ret_type = utils::coretype_to_llvm(ctr.context, body.1.clone()).unwrap();
     let func_type = utils::make_fn_type(ret_type, &vec![]);
     let function = ctr
         .module
