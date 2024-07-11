@@ -105,7 +105,7 @@ fn ghast_symbol() -> Parser<Ghast> {
 fn ghast_fn() -> Parser<Ghast> {
     pdo! {
         single('\\');
-        arg <- id();
+        arg <- id() | Parser::ret("".to_string());
         whitespace() * (..);
         chunk("->");
         whitespace() * (..);

@@ -57,6 +57,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             // 型推論
             let core_ast = corelang::type_inference(core_ast).unwrap();
+            eprintln!("型推論後💎 {:?}", core_ast);
 
             let ir = build_main(core_ast).unwrap();
             print!("{}", ir);

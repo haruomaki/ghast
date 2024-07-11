@@ -98,7 +98,12 @@ pub fn convert_into_core(ghast: Ghast) -> Core {
         Ghast::Fn(param, body) => {
             let (val, ty) = convert_into_core(*body);
             let body_core = (val, ty.clone());
-            let fn_type = CoreType::Fn(Box::new(CoreType::Unknown), Box::new(ty));
+            let fn_type = if param == "" {
+                CoreType::Fn(Box::new(CoreType::Tuple(vec![])), Box::new(ty))
+            } else {
+                // TODO: 仮引数の使われ方から、仮引数の型を推論したい
+                CoreType::Fn(Box::new(CoreType::Unknown), Box::new(ty))
+            };
             (CoreValue::Fn(param, Box::new(body_core)), fn_type)
         }
         Ghast::Lit(literal) => {
@@ -167,9 +172,23 @@ pub fn type_inference((core_value, core_type): Core) -> Result<Core, SemanticErr
 
     match core_value.clone() {
         CoreValue::Fn(param, body) => {
-            eprintln!("Fnの型を推論します！ param:{} | body: {:?}", param, body);
-            Ok((core_value, core_type))
+            if let CoreType::Fn(param_type, _old_ret_type) = core_type {
+                eprintln!(
+                "Fnの型を推論します！ param:{} | body: {:?} が、その前に、bodyの型を確定させます。",
+                param, body
+            );
+                let body = type_inference(*body)?;
+                let ret_type = body.1.clone();
+                eprintln!("Fnの戻り値の型は{:?}になります", ret_type);
+                Ok((
+                    CoreValue::Fn(param, Box::new(body)),
+                    CoreType::Fn(param_type, Box::new(ret_type)),
+                ))
+            } else {
+                panic!("Fnの型がFnでありません");
+            }
         }
+
         CoreValue::Apply(func, arg) => {
             eprintln!("Applyの型を推論します！ func:{:?} | arg: {:?}", func, arg);
             if let CoreType::Fn(_, ret_type) = (*func).1 {
