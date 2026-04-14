@@ -22,7 +22,7 @@ version = "0.1.0"
 
 [[package]]
 name = "pomprt"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "libc",
  "rawrrr",
