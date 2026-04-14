@@ -1,7 +1,7 @@
 use crate::ghast::{Binop, Ghast, Literal};
 use crate::operator::*;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug)]
 pub enum CoreLang {
@@ -10,6 +10,95 @@ pub enum CoreLang {
     Apply(Box<CoreLang>, Box<CoreLang>),
     Lit(Literal),
     Tuple(Vec<CoreLang>),
+}
+
+pub type Env = HashMap<String, Value>;
+
+#[derive(Clone, Debug)]
+pub enum Value {
+    I32(i32),
+    Closure(String, Box<CoreLang>, Env),
+    Tuple(Vec<Value>),
+    Builtin(&'static str),
+}
+
+impl Value {
+    fn as_i32(&self) -> i32 {
+        match self {
+            Value::I32(value) => *value,
+            _ => panic!("整数値ではありません: {:?}", self),
+        }
+    }
+}
+
+pub fn eval(ast: &CoreLang) -> Value {
+    let mut env = Env::new();
+    eval_with_env(ast, &mut env)
+}
+
+fn eval_with_env(ast: &CoreLang, env: &mut Env) -> Value {
+    match ast {
+        CoreLang::Symbol(name) => match env.get(name) {
+            Some(value) => value.clone(),
+            None => match name.as_str() {
+                "add" => Value::Builtin("add"),
+                "sub" => Value::Builtin("sub"),
+                _ => panic!("未定義のシンボルです: {}", name),
+            },
+        },
+        CoreLang::Fn(param, body) => Value::Closure(param.clone(), body.clone(), env.clone()),
+        CoreLang::Apply(func, args) => {
+            let func_value = eval_with_env(func, env);
+            let args_value = eval_with_env(args, env);
+
+            match func_value {
+                Value::Closure(param, body, closure_env) => {
+                    let arg = match args_value {
+                        Value::Tuple(mut elements) => {
+                            if elements.len() == 1 {
+                                elements.remove(0)
+                            } else {
+                                Value::Tuple(elements)
+                            }
+                        }
+                        other => other,
+                    };
+                    let mut new_env = closure_env.clone();
+                    new_env.insert(param, arg);
+                    eval_with_env(&body, &mut new_env)
+                }
+                Value::Builtin(name) => match name {
+                    "add" => match args_value {
+                        Value::Tuple(mut elements) if elements.len() == 2 => {
+                            let rhs = elements.pop().unwrap().as_i32();
+                            let lhs = elements.pop().unwrap().as_i32();
+                            Value::I32(lhs + rhs)
+                        }
+                        _ => panic!("add は 2 つの整数を取ります"),
+                    },
+                    "sub" => match args_value {
+                        Value::Tuple(mut elements) if elements.len() == 2 => {
+                            let rhs = elements.pop().unwrap().as_i32();
+                            let lhs = elements.pop().unwrap().as_i32();
+                            Value::I32(lhs - rhs)
+                        }
+                        _ => panic!("sub は 2 つの整数を取ります"),
+                    },
+                    _ => panic!("未知の組み込み関数です: {}", name),
+                },
+                other => panic!("適用可能な関数ではありません: {:?}", other),
+            }
+        }
+        CoreLang::Lit(literal) => match literal {
+            Literal::I32(value) => Value::I32(*value),
+        },
+        CoreLang::Tuple(elements) => Value::Tuple(
+            elements
+                .iter()
+                .map(|element| eval_with_env(element, env))
+                .collect(),
+        ),
+    }
 }
 
 /// Binopを位置pで分割する

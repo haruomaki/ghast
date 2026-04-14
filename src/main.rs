@@ -1,4 +1,3 @@
-use corelang::CoreLang;
 use std::error::Error;
 
 mod corelang;
@@ -18,9 +17,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             let core_ast = corelang::convert_into_core(ghast);
             eprintln!("コア言語💎 {:?}", core_ast);
 
-            // TODO: eval() 関数で評価する
-            // let result = eval(&core_ast);
-            // println!("結果: {:?}", result);
+            let value = corelang::eval(&core_ast);
+            println!("評価結果: {:?}", value);
 
             Ok(())
         }
