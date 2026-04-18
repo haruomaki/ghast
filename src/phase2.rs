@@ -5,7 +5,7 @@ pub use monapa::ParseError;
 
 #[derive(Clone, Debug)]
 pub struct Binop {
-    pub terms: Vec<Ghast>,
+    pub terms: Vec<FlatIR>,
     pub ops: Vec<String>,
 }
 
@@ -15,12 +15,12 @@ pub enum Literal {
 }
 
 #[derive(Clone, Debug)]
-pub enum Ghast {
+pub enum FlatIR {
     Symbol(String),
-    Fn(String, Box<Ghast>),
+    Fn(String, Box<FlatIR>),
     Binop(Binop),
     Lit(Literal),
-    Tuple(Vec<Ghast>),
+    Tuple(Vec<FlatIR>),
 }
 
 fn id_start() -> Parser<char> {
@@ -56,7 +56,7 @@ fn binop() -> Parser<String> {
     }
 }
 
-fn ghast_binop_rest() -> Parser<Vec<(String, Ghast)>> {
+fn ghast_binop_rest() -> Parser<Vec<(String, FlatIR)>> {
     (pdo! {
         op <- binop();
         right <- term();
@@ -64,7 +64,7 @@ fn ghast_binop_rest() -> Parser<Vec<(String, Ghast)>> {
     }) * ..
 }
 
-fn ghast_binop() -> Parser<Ghast> {
+fn ghast_binop() -> Parser<FlatIR> {
     pdo! {
         head <- term();
         rest <- ghast_binop_rest();
@@ -77,12 +77,12 @@ fn ghast_binop() -> Parser<Ghast> {
                 terms.push(term);
                 ops.push(op);
             }
-            Ghast::Binop(Binop{terms:terms, ops:ops})
+            FlatIR::Binop(Binop{terms:terms, ops:ops})
         }
     }
 }
 
-fn paren() -> Parser<Ghast> {
+fn paren() -> Parser<FlatIR> {
     pdo! {
         single('(');
         whitespace() * ..;
@@ -93,16 +93,16 @@ fn paren() -> Parser<Ghast> {
     }
 }
 
-fn term() -> Parser<Ghast> {
+fn term() -> Parser<FlatIR> {
     // (foo) is a value, (foo,) is a tuple
     ghast_fn() | ghast_symbol() | ghast_lit() | paren() | ghast_tuple()
 }
 
-fn ghast_symbol() -> Parser<Ghast> {
-    id().bind(|id| Parser::ret(Ghast::Symbol(id)))
+fn ghast_symbol() -> Parser<FlatIR> {
+    id().bind(|id| Parser::ret(FlatIR::Symbol(id)))
 }
 
-fn ghast_fn() -> Parser<Ghast> {
+fn ghast_fn() -> Parser<FlatIR> {
     pdo! {
         single('\\');
         arg <- id();
@@ -110,24 +110,24 @@ fn ghast_fn() -> Parser<Ghast> {
         chunk("->");
         whitespace() * (..);
         cont <- ghast_master();
-        return Ghast::Fn(arg, Box::new(cont))
+        return FlatIR::Fn(arg, Box::new(cont))
     }
 }
 
-fn ghast_lit() -> Parser<Ghast> {
+fn ghast_lit() -> Parser<FlatIR> {
     pdo! {
         // I32
         num <- literal_digit() * (1..);
         let num_str = num.iter().collect::<String>();
-        return Ghast::Lit(Literal::I32(num_str.parse().unwrap()))
+        return FlatIR::Lit(Literal::I32(num_str.parse().unwrap()))
     }
 }
 
-fn tuple_tail() -> Parser<Option<Ghast>> {
+fn tuple_tail() -> Parser<Option<FlatIR>> {
     ghast_master().map(|g| Some(g)).choice(Parser::ret(None))
 }
 
-fn ghast_tuple() -> Parser<Ghast> {
+fn ghast_tuple() -> Parser<FlatIR> {
     pdo! {
         single('(');
         gs <- (pdo! {
@@ -137,14 +137,14 @@ fn ghast_tuple() -> Parser<Ghast> {
         }) * ..;
         tail <- tuple_tail();
         single(')');
-        return Ghast::Tuple(match tail{
+        return FlatIR::Tuple(match tail{
             Some(g) => [gs, vec![g]].concat(),
             _ => gs,
         })
     }
 }
 
-pub fn ghast_master() -> Parser<Ghast> {
+pub fn ghast_master() -> Parser<FlatIR> {
     pdo! {
         whitespace() * ..;
         binop <- ghast_binop();

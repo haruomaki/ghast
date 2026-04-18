@@ -1,15 +1,15 @@
-use crate::ghast::{Binop, Ghast, Literal};
 use crate::operator::*;
+use crate::phase2::{Binop, FlatIR, Literal};
 
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug)]
-pub enum CoreLang {
+pub enum Ghast {
     Symbol(String),
-    Fn(String, Box<CoreLang>),
-    Apply(Box<CoreLang>, Box<CoreLang>),
+    Fn(String, Box<Ghast>),
+    Apply(Box<Ghast>, Box<Ghast>),
     Lit(Literal),
-    Tuple(Vec<CoreLang>),
+    Tuple(Vec<Ghast>),
 }
 
 pub type Env = HashMap<String, Value>;
@@ -17,7 +17,7 @@ pub type Env = HashMap<String, Value>;
 #[derive(Clone, Debug)]
 pub enum Value {
     I32(i32),
-    Closure(String, Box<CoreLang>, Env),
+    Closure(String, Box<Ghast>, Env),
     Tuple(Vec<Value>),
     Builtin(&'static str),
 }
@@ -31,14 +31,14 @@ impl Value {
     }
 }
 
-pub fn eval(ast: &CoreLang) -> Value {
+pub fn eval(ast: &Ghast) -> Value {
     let mut env = Env::new();
     eval_with_env(ast, &mut env)
 }
 
-fn eval_with_env(ast: &CoreLang, env: &mut Env) -> Value {
+fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
     match ast {
-        CoreLang::Symbol(name) => match env.get(name) {
+        Ghast::Symbol(name) => match env.get(name) {
             Some(value) => value.clone(),
             None => match name.as_str() {
                 "add" => Value::Builtin("add"),
@@ -46,8 +46,8 @@ fn eval_with_env(ast: &CoreLang, env: &mut Env) -> Value {
                 _ => panic!("未定義のシンボルです: {}", name),
             },
         },
-        CoreLang::Fn(param, body) => Value::Closure(param.clone(), body.clone(), env.clone()),
-        CoreLang::Apply(func, args) => {
+        Ghast::Fn(param, body) => Value::Closure(param.clone(), body.clone(), env.clone()),
+        Ghast::Apply(func, args) => {
             let func_value = eval_with_env(func, env);
             let args_value = eval_with_env(args, env);
 
@@ -89,10 +89,10 @@ fn eval_with_env(ast: &CoreLang, env: &mut Env) -> Value {
                 other => panic!("適用可能な関数ではありません: {:?}", other),
             }
         }
-        CoreLang::Lit(literal) => match literal {
+        Ghast::Lit(literal) => match literal {
             Literal::I32(value) => Value::I32(*value),
         },
-        CoreLang::Tuple(elements) => Value::Tuple(
+        Ghast::Tuple(elements) => Value::Tuple(
             elements
                 .iter()
                 .map(|element| eval_with_env(element, env))
@@ -154,28 +154,28 @@ fn find_min_precedence_index(ops: &[String]) -> Result<usize, String> {
 }
 
 // 一変数関数への引数を、要素数1のタプルへ変換する
-fn ensure_tuple(arg: CoreLang) -> CoreLang {
+fn ensure_tuple(arg: Ghast) -> Ghast {
     match arg {
-        CoreLang::Tuple(_) => arg, // 既にタプルなら何もしない
-        _ => CoreLang::Tuple(vec![arg]),
+        Ghast::Tuple(_) => arg, // 既にタプルなら何もしない
+        _ => Ghast::Tuple(vec![arg]),
     }
 }
 
-pub fn convert_into_core(ghast: Ghast) -> CoreLang {
-    match ghast {
-        Ghast::Symbol(name) => CoreLang::Symbol(name),
-        Ghast::Fn(param, body) => CoreLang::Fn(param, Box::new(convert_into_core(*body))),
-        Ghast::Lit(literal) => CoreLang::Lit(literal),
-        Ghast::Tuple(elems) => {
-            CoreLang::Tuple(elems.into_iter().map(|e| convert_into_core(e)).collect())
+pub fn convert_into_ghast(binop_ir: FlatIR) -> Ghast {
+    match binop_ir {
+        FlatIR::Symbol(name) => Ghast::Symbol(name),
+        FlatIR::Fn(param, body) => Ghast::Fn(param, Box::new(convert_into_ghast(*body))),
+        FlatIR::Lit(literal) => Ghast::Lit(literal),
+        FlatIR::Tuple(elems) => {
+            Ghast::Tuple(elems.into_iter().map(|e| convert_into_ghast(e)).collect())
         }
-        Ghast::Binop(binop) => {
+        FlatIR::Binop(binop) => {
             // 優先度の低い順に、左結合なら右から、右結合なら左から探索していく。
             // 今のところ演算子は" "だけ。左結合なので右から探索。
 
             if binop.terms.len() == 1 {
                 let term = binop.terms.into_iter().next().expect("termsは長さ1のはず"); // 先頭要素を所有権ごと取得
-                return convert_into_core(term);
+                return convert_into_ghast(term);
             }
 
             let pivot = find_min_precedence_index(&binop.ops);
@@ -188,21 +188,21 @@ pub fn convert_into_core(ghast: Ghast) -> CoreLang {
                         .unwrap();
                     let (function, arguments) = if binop.ops[pivot] == apply_info.op {
                         let (b, f) = split_at(binop, pivot);
-                        let bcore = convert_into_core(Ghast::Binop(b));
-                        let fcore = convert_into_core(Ghast::Binop(f));
+                        let bcore = convert_into_ghast(FlatIR::Binop(b));
+                        let fcore = convert_into_ghast(FlatIR::Binop(f));
                         (bcore, fcore)
                     } else {
                         let name = info(&binop.ops[pivot]).name;
-                        let ncore = CoreLang::Symbol(name.to_string());
+                        let ncore = Ghast::Symbol(name.to_string());
 
                         let (b, f) = split_at(binop, pivot);
-                        let bcore = convert_into_core(Ghast::Binop(b));
-                        let fcore = convert_into_core(Ghast::Binop(f));
-                        let args = CoreLang::Tuple(vec![bcore, fcore]);
+                        let bcore = convert_into_ghast(FlatIR::Binop(b));
+                        let fcore = convert_into_ghast(FlatIR::Binop(f));
+                        let args = Ghast::Tuple(vec![bcore, fcore]);
                         (ncore, args)
                     };
 
-                    CoreLang::Apply(Box::new(function), Box::new(ensure_tuple(arguments)))
+                    Ghast::Apply(Box::new(function), Box::new(ensure_tuple(arguments)))
                 }
                 Err(e) => panic!("find_min_precedence_index()でエラー: {:?}", e),
             }
