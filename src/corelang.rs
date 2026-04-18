@@ -43,6 +43,7 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
             None => match name.as_str() {
                 "add" => Value::Builtin("add"),
                 "sub" => Value::Builtin("sub"),
+                "neg" => Value::Builtin("neg"),
                 _ => panic!("未定義のシンボルです: {}", name),
             },
         },
@@ -83,6 +84,10 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
                             Value::I32(lhs - rhs)
                         }
                         _ => panic!("sub は 2 つの整数を取ります"),
+                    },
+                    "neg" => match args_value {
+                        Value::I32(value) => Value::I32(-value),
+                        _ => panic!("neg は 1 つの整数を取ります"),
                     },
                     _ => panic!("未知の組み込み関数です: {}", name),
                 },
@@ -169,6 +174,14 @@ pub fn convert_into_ghast(binop_ir: FlatIR) -> Ghast {
         FlatIR::Tuple(elems) => {
             Ghast::Tuple(elems.into_iter().map(|e| convert_into_ghast(e)).collect())
         }
+        FlatIR::UnaryOp(op, arg) => match op.as_str() {
+            "+" => convert_into_ghast(*arg),
+            "-" => Ghast::Apply(
+                Box::new(Ghast::Symbol("neg".to_string())),
+                Box::new(convert_into_ghast(*arg)),
+            ),
+            _ => panic!("未知の単項演算子です: {}", op),
+        },
         FlatIR::Binop(binop) => {
             // 優先度の低い順に、左結合なら右から、右結合なら左から探索していく。
             // 今のところ演算子は" "だけ。左結合なので右から探索。

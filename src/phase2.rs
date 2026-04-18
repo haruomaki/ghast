@@ -18,6 +18,7 @@ pub enum Literal {
 pub enum FlatIR {
     Symbol(String),
     Fn(String, Box<FlatIR>),
+    UnaryOp(String, Box<FlatIR>),
     Binop(Binop),
     Lit(Literal),
     Tuple(Vec<FlatIR>),
@@ -95,7 +96,17 @@ fn paren() -> Parser<FlatIR> {
 
 fn term() -> Parser<FlatIR> {
     // (foo) is a value, (foo,) is a tuple
-    ghast_fn() | ghast_symbol() | ghast_lit() | paren() | ghast_tuple()
+    unary_term() | ghast_fn() | ghast_symbol() | ghast_lit() | paren() | ghast_tuple()
+}
+
+fn unary_term() -> Parser<FlatIR> {
+    pdo! {
+        // TODO: +と-以外の単項演算子にも対応する
+        op <- choice(vec![chunk("+"), chunk("-")].into_iter());
+        whitespace() * ..;
+        term <- term();
+        return FlatIR::UnaryOp(op.to_string(), Box::new(term))
+    }
 }
 
 fn ghast_symbol() -> Parser<FlatIR> {
@@ -150,5 +161,50 @@ pub fn ghast_master() -> Parser<FlatIR> {
         binop <- ghast_binop();
         whitespace() * ..;
         return binop
+    }
+}
+
+// =====================================
+// テスト
+// =====================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_unary_minus_literal() {
+        let ast = ghast_master().parse("-5").unwrap();
+        match ast {
+            FlatIR::UnaryOp(op, arg) => {
+                assert_eq!(op, "-");
+                match *arg {
+                    FlatIR::Lit(Literal::I32(value)) => assert_eq!(value, 5),
+                    other => panic!("unexpected unary operand: {:?}", other),
+                }
+            }
+            other => panic!("unexpected parse result: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parse_add_unary_minus() {
+        let ast = ghast_master().parse("5 + - 3").unwrap();
+        match ast {
+            FlatIR::Binop(binop) => {
+                assert_eq!(binop.ops, vec!["+".to_string()]);
+                match &binop.terms[1] {
+                    FlatIR::UnaryOp(op, arg) => {
+                        assert_eq!(op, "-");
+                        match **arg {
+                            FlatIR::Lit(Literal::I32(value)) => assert_eq!(value, 3),
+                            ref other => panic!("unexpected unary operand: {:?}", other),
+                        }
+                    }
+                    other => panic!("unexpected right term: {:?}", other),
+                }
+            }
+            other => panic!("unexpected parse result: {:?}", other),
+        }
     }
 }
