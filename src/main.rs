@@ -1,8 +1,8 @@
 use std::error::Error;
 
-mod corelang;
 mod operator;
 mod phase2;
+mod phase3;
 
 use phase2::{FlatIR, ParseError};
 
