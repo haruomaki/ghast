@@ -10,15 +10,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     // 入力受け付け
     let input = pomprt::new(">> ").read()?;
 
-    let result = phase2::ghast_master().parse(input);
+    let result = phase2::ghast().parse(input);
     match result {
         Ok(ghast) => {
             eprintln!("受理🎉 {:?}", ghast);
-            let core_ast = corelang::convert_into_ghast(ghast);
-            eprintln!("コア言語💎 {:?}", core_ast);
+            // let core_ast = corelang::convert_into_ghast(ghast);
+            // eprintln!("コア言語💎 {:?}", core_ast);
 
-            let value = corelang::eval(&core_ast);
-            println!("評価結果: {:?}", value);
+            // let value = corelang::eval(&core_ast);
+            // println!("評価結果: {:?}", value);
 
             Ok(())
         }

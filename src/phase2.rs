@@ -51,7 +51,7 @@ fn literal_digit() -> Parser<char> {
 /// 後置単項演算子のパーサ
 fn postfix_term() -> Parser<FlatIR> {
     pdo! {
-        base <- unary_term() | ghast_fn() | ghast_symbol() | ghast_lit() | paren() | ghast_tuple();
+        base <- unary_term() | fun() | symbol() | literal() | paren() | tuple();
         postfixes <- (pdo! {
             ws();
             op <- choice(postfix_operators().into_iter().map(|op| chunk(op)));
@@ -96,13 +96,13 @@ fn binop_itself() -> Parser<String> {
     }
 }
 
-/// op - term - op - term - ... - term をパースする
+/// １回以上の [op, term] の繰り返しをパースする
 fn binop_rest() -> Parser<Vec<(String, FlatIR)>> {
     (pdo! {
         op <- binop_itself();
-        right <- term();
-        return (op, right)
-    }) * ..
+        t <- term();
+        return (op, t)
+    }) * (1..)
 }
 
 /// 二項演算子を右辺と左辺込みでパースする
@@ -111,7 +111,8 @@ fn binop() -> Parser<FlatIR> {
         head <- term();
         rest <- binop_rest();
         return if rest.is_empty() {
-            head
+            // TODO: 条件分岐を削除
+            panic!("ぴえん");
         } else {
             let mut terms = vec![head];
             let mut ops = vec![];
@@ -119,7 +120,7 @@ fn binop() -> Parser<FlatIR> {
                 terms.push(term);
                 ops.push(op);
             }
-            FlatIR::Binop(Binop{terms:terms, ops:ops})
+            FlatIR::Binop(Binop{terms, ops})
         }
     }
 }
@@ -128,40 +129,33 @@ fn binop() -> Parser<FlatIR> {
 // 全般
 // ---------------------------
 
+/// 括弧に包まれた表現をパース
 fn paren() -> Parser<FlatIR> {
     pdo! {
         single('(');
-        ws();
-        t <- ghast_master();
-        ws();
+        t <- expr();
         single(')');
         return t
     }
 }
 
-/// 「項」のパーサ
-fn term() -> Parser<FlatIR> {
-    // (foo) is a value, (foo,) is a tuple
-    postfix_term()
-}
-
-fn ghast_symbol() -> Parser<FlatIR> {
+fn symbol() -> Parser<FlatIR> {
     id().bind(|id| Parser::ret(FlatIR::Symbol(id)))
 }
 
-fn ghast_fn() -> Parser<FlatIR> {
+fn fun() -> Parser<FlatIR> {
     pdo! {
         single('\\');
         arg <- id();
         whitespace() * (..);
         chunk("->");
         whitespace() * (..);
-        cont <- ghast_master();
+        cont <- expr();
         return FlatIR::Fn(arg, Box::new(cont))
     }
 }
 
-fn ghast_lit() -> Parser<FlatIR> {
+fn literal() -> Parser<FlatIR> {
     pdo! {
         // I32
         num <- literal_digit() * (1..);
@@ -170,34 +164,52 @@ fn ghast_lit() -> Parser<FlatIR> {
     }
 }
 
-fn tuple_tail() -> Parser<Option<FlatIR>> {
-    ghast_master().map(|g| Some(g)).choice(Parser::ret(None))
+fn tuple_term() -> Parser<FlatIR> {
+    term()
 }
 
-fn ghast_tuple() -> Parser<FlatIR> {
-    pdo! {
+fn tuple() -> Parser<FlatIR> {
+    (pdo! {
         single('(');
-        gs <- (pdo! {
-            g <- ghast_master();
-            single(',');
-            return g
-        }) * ..;
-        tail <- tuple_tail();
+        ws();
         single(')');
-        return FlatIR::Tuple(match tail{
-            Some(g) => [gs, vec![g]].concat(),
-            _ => gs,
-        })
+        return FlatIR::Tuple(vec![])
+    }) | pdo! {
+        single('(');
+        head <- tuple_term();
+        rest <- (pdo! {
+            single(',');
+            terms <- tuple_term();
+            return terms
+        }) * (..);
+        single(',') * (0..1);
+        single(')');
+        return FlatIR::Tuple(vec![vec![head], rest].concat())
     }
 }
 
-pub fn ghast_master() -> Parser<FlatIR> {
+/// 二項演算子の項になれる表現
+pub fn term() -> Parser<FlatIR> {
     pdo! {
         ws();
-        binop <- binop();
+        t <- unary_term() | literal() | symbol() | paren() | tuple();
         ws();
-        return binop
+        return t
     }
+}
+
+/// 二項演算子の項になれないものも含む、あらゆる表現
+pub fn expr() -> Parser<FlatIR> {
+    pdo! {
+        ws();
+        e <- binop() | term() | fun();
+        ws();
+        return e
+    }
+}
+
+pub fn ghast() -> Parser<FlatIR> {
+    expr()
 }
 
 // =====================================
@@ -210,7 +222,7 @@ mod tests {
 
     #[test]
     fn parse_unary_minus_literal() {
-        let ast = ghast_master().parse("-5").unwrap();
+        let ast = expr().parse("-5").unwrap();
         match ast {
             FlatIR::UnaryOp(op, arg) => {
                 assert_eq!(op, "-");
@@ -225,7 +237,7 @@ mod tests {
 
     #[test]
     fn parse_add_unary_minus() {
-        let ast = ghast_master().parse("5 + - 3").unwrap();
+        let ast = expr().parse("5 + - 3").unwrap();
         match ast {
             FlatIR::Binop(binop) => {
                 assert_eq!(binop.ops, vec!["+".to_string()]);
