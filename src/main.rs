@@ -7,8 +7,15 @@ mod phase2;
 use phase2::{FlatIR, ParseError};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // 入力受け付け
-    let input = pomprt::new(">> ").read()?;
+    // コマンドライン引数がある場合それをパース、無ければデモ動作
+    let input = match std::env::args().nth(1) {
+        Some(arg) if arg == "-i" => pomprt::new("❯ ").read()?,
+        Some(arg) => arg,
+        None => {
+            eprintln!("Demo mode.");
+            String::from("1 + 1")
+        }
+    };
 
     let result = phase2::ghast().parse(input);
     match result {

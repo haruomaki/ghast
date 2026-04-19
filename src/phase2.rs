@@ -164,27 +164,13 @@ fn literal() -> Parser<FlatIR> {
     }
 }
 
-fn tuple_term() -> Parser<FlatIR> {
-    term()
-}
-
 fn tuple() -> Parser<FlatIR> {
-    (pdo! {
+    pdo! {
         single('(');
-        ws();
+        terms <- sep_by(expr(), single(','));
+        ws(); // 空の括弧内 or 末尾カンマ後の空白を許容
         single(')');
-        return FlatIR::Tuple(vec![])
-    }) | pdo! {
-        single('(');
-        head <- tuple_term();
-        rest <- (pdo! {
-            single(',');
-            terms <- tuple_term();
-            return terms
-        }) * (..);
-        single(',') * (0..1);
-        single(')');
-        return FlatIR::Tuple(vec![vec![head], rest].concat())
+        return FlatIR::Tuple(terms)
     }
 }
 
