@@ -1,9 +1,11 @@
-// 演算子の結合方向と比較演算子であるかどうかを定義するための列挙型
+// 演算子の結合方向と種類を定義するための列挙型
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Fixity {
-    Left,
-    Right,
+    Prefix,
+    Postfix,
+    InfixLeft,
+    InfixRight,
     CmpLeft,
     CmpRight,
     None,
@@ -25,19 +27,43 @@ pub const OPERATORS: &[OperatorInfo] = &[
     OperatorInfo {
         op: "+",
         name: "add",
-        fixity: Fixity::Left,
+        fixity: Fixity::InfixLeft,
         precedence: 10,
     },
     OperatorInfo {
         op: "-",
         name: "sub",
-        fixity: Fixity::Left,
+        fixity: Fixity::InfixLeft,
         precedence: 10,
+    },
+    OperatorInfo {
+        op: ";",
+        name: "seq",
+        fixity: Fixity::InfixLeft,
+        precedence: 1,
+    },
+    OperatorInfo {
+        op: "+",
+        name: "pos",
+        fixity: Fixity::Prefix,
+        precedence: 20,
+    },
+    OperatorInfo {
+        op: "-",
+        name: "neg",
+        fixity: Fixity::Prefix,
+        precedence: 20,
+    },
+    OperatorInfo {
+        op: "!",
+        name: "not",
+        fixity: Fixity::Postfix,
+        precedence: 15,
     },
     OperatorInfo {
         op: "",
         name: APPLY_NAME,
-        fixity: Fixity::Left,
+        fixity: Fixity::InfixLeft,
         precedence: 300,
     },
 ];
@@ -54,10 +80,48 @@ pub fn available_operators_without_space() -> Vec<&'static str> {
         .collect()
 }
 
-// 演算子をキーとしてその情報を取得する関数
-pub fn info(op: &str) -> &OperatorInfo {
+pub fn prefix_operators() -> Vec<&'static str> {
     OPERATORS
         .iter()
-        .find(|&op_info| op_info.op == op)
-        .expect("未知の演算子です")
+        .filter(|op_info| matches!(op_info.fixity, Fixity::Prefix))
+        .map(|op_info| op_info.op)
+        .collect()
+}
+
+pub fn postfix_operators() -> Vec<&'static str> {
+    OPERATORS
+        .iter()
+        .filter(|op_info| matches!(op_info.fixity, Fixity::Postfix))
+        .map(|op_info| op_info.op)
+        .collect()
+}
+
+// 演算子をキーとしてその情報を取得する関数
+pub fn info(op: &str) -> Option<&OperatorInfo> {
+    // まず Infix を探す
+    if let Some(info) = OPERATORS.iter().find(|op_info| {
+        op_info.op == op
+            && matches!(
+                op_info.fixity,
+                Fixity::InfixLeft | Fixity::InfixRight | Fixity::CmpLeft | Fixity::CmpRight
+            )
+    }) {
+        Some(info)
+    } else {
+        // 次に Prefix
+        OPERATORS
+            .iter()
+            .find(|op_info| op_info.op == op && op_info.fixity == Fixity::Prefix)
+    }
+}
+
+pub fn info_unary(op: &str, is_prefix: bool) -> Option<&OperatorInfo> {
+    let fixity = if is_prefix {
+        Fixity::Prefix
+    } else {
+        Fixity::Postfix
+    };
+    OPERATORS
+        .iter()
+        .find(|op_info| op_info.op == op && op_info.fixity == fixity)
 }

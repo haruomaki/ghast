@@ -1,4 +1,4 @@
-use crate::operator::available_operators_without_space;
+use crate::operator::{available_operators_without_space, postfix_operators, prefix_operators};
 use monapa::*;
 
 pub use monapa::ParseError;
@@ -96,14 +96,34 @@ fn paren() -> Parser<FlatIR> {
 /// 「項」のパーサ
 fn term() -> Parser<FlatIR> {
     // (foo) is a value, (foo,) is a tuple
-    unary_term() | ghast_fn() | ghast_symbol() | ghast_lit() | paren() | ghast_tuple()
+    postfix_term()
+}
+
+/// 後置単項演算子のパーサ
+fn postfix_term() -> Parser<FlatIR> {
+    pdo! {
+        base <- unary_term() | ghast_fn() | ghast_symbol() | ghast_lit() | paren() | ghast_tuple();
+        postfixes <- (pdo! {
+            ws();
+            op <- choice(postfix_operators().into_iter().map(|op| chunk(op)));
+            return op
+        }) * ..;
+        return if postfixes.is_empty() {
+            base
+        } else {
+            let mut result = base;
+            for op in postfixes {
+                result = FlatIR::UnaryOp(op, Box::new(result));
+            }
+            result
+        }
+    }
 }
 
 /// 単項演算子のパーサ
 fn unary_term() -> Parser<FlatIR> {
     pdo! {
-        // TODO: +と-以外の単項演算子にも対応する
-        op <- chunk("+") | chunk("-");
+        op <- choice(prefix_operators().into_iter().map(|op| chunk(op)));
         ws();
         term <- term();
         return FlatIR::UnaryOp(op, Box::new(term))
