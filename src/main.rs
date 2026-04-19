@@ -6,16 +6,11 @@ mod phase2;
 
 use phase2::{FlatIR, ParseError};
 
-fn main() -> Result<(), Box<dyn Error>> {
-    // コマンドライン引数がある場合それをパース、無ければデモ動作
-    let input = match std::env::args().nth(1) {
-        Some(arg) if arg == "-i" => pomprt::new("❯ ").read()?,
-        Some(arg) => arg,
-        None => {
-            eprintln!("Demo mode.");
-            String::from("1 + 1")
-        }
-    };
+fn parse_and_print(input: String) -> Result<(), Box<dyn Error>> {
+    // 入力が空なら終了
+    if input.trim().is_empty() {
+        return Ok(());
+    }
 
     let result = phase2::ghast().parse(input);
     match result {
@@ -38,6 +33,26 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
 
             Err(Box::new(e))
+        }
+    }
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    // コマンドライン引数がある場合それをパース、無ければデモ動作
+    match std::env::args().nth(1) {
+        Some(arg) if arg == "-i" => {
+            for input in pomprt::new(">>> ") {
+                if let Err(e) = parse_and_print(input) {
+                    println!("{:?}", e);
+                }
+            }
+            Ok(())
+        }
+        Some(arg) => parse_and_print(arg),
+        None => {
+            // デモモード
+            eprintln!("Demo mode.");
+            parse_and_print(String::from("1 + 1"))
         }
     }
 }
