@@ -44,60 +44,9 @@ fn literal_digit() -> Parser<char> {
     Parser::satisfy(|c| c.is_ascii_digit())
 }
 
-fn binop() -> Parser<String> {
-    (pdo! {
-        ws();
-        op <- choice(available_operators_without_space().into_iter().map(|op| chunk(op)));
-        ws();
-        return op.to_string()
-    }) | pdo! {
-        whitespace() * (1..);
-        return " ".to_string()
-    }
-}
-
-fn ghast_binop_rest() -> Parser<Vec<(String, FlatIR)>> {
-    (pdo! {
-        op <- binop();
-        right <- term();
-        return (op, right)
-    }) * ..
-}
-
-fn ghast_binop() -> Parser<FlatIR> {
-    pdo! {
-        head <- term();
-        rest <- ghast_binop_rest();
-        return if rest.is_empty() {
-            head
-        } else {
-            let mut terms = vec![head];
-            let mut ops = vec![];
-            for (op, term) in rest {
-                terms.push(term);
-                ops.push(op);
-            }
-            FlatIR::Binop(Binop{terms:terms, ops:ops})
-        }
-    }
-}
-
-fn paren() -> Parser<FlatIR> {
-    pdo! {
-        single('(');
-        ws();
-        t <- ghast_master();
-        ws();
-        single(')');
-        return t
-    }
-}
-
-/// 「項」のパーサ
-fn term() -> Parser<FlatIR> {
-    // (foo) is a value, (foo,) is a tuple
-    postfix_term()
-}
+// ---------------------------
+// 単項演算子
+// ---------------------------
 
 /// 後置単項演算子のパーサ
 fn postfix_term() -> Parser<FlatIR> {
@@ -128,6 +77,72 @@ fn unary_term() -> Parser<FlatIR> {
         term <- term();
         return FlatIR::UnaryOp(op, Box::new(term))
     }
+}
+
+// ---------------------------
+// 二項演算子
+// ---------------------------
+
+/// 二項演算子自体を表すパーサ
+fn binop_itself() -> Parser<String> {
+    (pdo! {
+        ws();
+        op <- choice(available_operators_without_space().into_iter().map(|op| chunk(op)));
+        ws();
+        return op.to_string()
+    }) | pdo! {
+        whitespace() * (1..);
+        return " ".to_string()
+    }
+}
+
+/// op - term - op - term - ... - term をパースする
+fn binop_rest() -> Parser<Vec<(String, FlatIR)>> {
+    (pdo! {
+        op <- binop_itself();
+        right <- term();
+        return (op, right)
+    }) * ..
+}
+
+/// 二項演算子を右辺と左辺込みでパースする
+fn binop() -> Parser<FlatIR> {
+    pdo! {
+        head <- term();
+        rest <- binop_rest();
+        return if rest.is_empty() {
+            head
+        } else {
+            let mut terms = vec![head];
+            let mut ops = vec![];
+            for (op, term) in rest {
+                terms.push(term);
+                ops.push(op);
+            }
+            FlatIR::Binop(Binop{terms:terms, ops:ops})
+        }
+    }
+}
+
+// ---------------------------
+// 全般
+// ---------------------------
+
+fn paren() -> Parser<FlatIR> {
+    pdo! {
+        single('(');
+        ws();
+        t <- ghast_master();
+        ws();
+        single(')');
+        return t
+    }
+}
+
+/// 「項」のパーサ
+fn term() -> Parser<FlatIR> {
+    // (foo) is a value, (foo,) is a tuple
+    postfix_term()
 }
 
 fn ghast_symbol() -> Parser<FlatIR> {
@@ -179,7 +194,7 @@ fn ghast_tuple() -> Parser<FlatIR> {
 pub fn ghast_master() -> Parser<FlatIR> {
     pdo! {
         ws();
-        binop <- ghast_binop();
+        binop <- binop();
         ws();
         return binop
     }
