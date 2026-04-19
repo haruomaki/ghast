@@ -45,27 +45,18 @@ fn id() -> Parser<String> {
 
 /// 後置単項演算子のパーサ
 fn postfix_term() -> Parser<FlatIR> {
+    // 左再帰を回避するため、演算子を任意個一気に消費した後、無理矢理組み立てる
     pdo! {
-        base <- unary_term() | fun() | symbol() | literal() | paren() | tuple();
-        postfixes <- (pdo! {
-            ws();
-            op <- choice(postfix_operators().into_iter().map(|op| chunk(op)));
-            return op
-        }) * ..;
-        return if postfixes.is_empty() {
-            base
-        } else {
-            let mut result = base;
-            for op in postfixes {
-                result = FlatIR::UnaryOp(op, Box::new(result));
-            }
-            result
-        }
+        base <- atom();
+        ops <- (ws() >> choice(postfix_operators().into_iter().map(|op| chunk(op)))) * (..);
+        return ops.into_iter().fold(base, |acc, op| {
+            FlatIR::UnaryOp(op, Box::new(acc))
+        })
     }
 }
 
 /// 単項演算子のパーサ
-fn unary_term() -> Parser<FlatIR> {
+fn prefix_term() -> Parser<FlatIR> {
     pdo! {
         op <- choice(prefix_operators().into_iter().map(|op| chunk(op)));
         ws();
@@ -126,12 +117,7 @@ fn binop() -> Parser<FlatIR> {
 
 /// 括弧に包まれた表現をパース
 fn paren() -> Parser<FlatIR> {
-    pdo! {
-        single('(');
-        t <- expr();
-        single(')');
-        return t
-    }
+    single('(') >> expr() << single(')')
 }
 
 /// シンボルを表すパーサ
@@ -173,14 +159,19 @@ fn tuple() -> Parser<FlatIR> {
     }
 }
 
+/// 後置演算子の前に配置できる表現
+fn atom() -> Parser<FlatIR> {
+    ws() >> (literal() | symbol() | paren() | tuple()) << ws()
+}
+
 /// 二項演算子の項になれる表現
 pub fn term() -> Parser<FlatIR> {
-    ws() >> (unary_term() | literal() | symbol() | paren() | tuple()) << ws()
+    ws() >> (prefix_term() | postfix_term() | atom()) << ws()
 }
 
 /// 二項演算子の項になれないものも含む、あらゆる表現
 pub fn expr() -> Parser<FlatIR> {
-    ws() >> (binop() | term() | fun()) << ws()
+    ws() >> (binop() | fun() | term()) << ws()
 }
 
 pub fn ghast() -> Parser<FlatIR> {
