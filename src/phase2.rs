@@ -24,32 +24,31 @@ pub enum FlatIR {
     Tuple(Vec<FlatIR>),
 }
 
-fn id_start() -> Parser<char> {
-    Parser::satisfy(|c| c == '_' || c.is_alphabetic())
+/// 空白を消費するパーサ
+fn ws() -> Parser<()> {
+    (whitespace() * ..).void()
 }
 
-fn id_continue() -> Parser<char> {
-    Parser::satisfy(|c| c == '_' || c.is_alphanumeric())
-}
-
+/// 変数名などを表すパーサ
 fn id() -> Parser<String> {
     pdo! {
-        start <- id_start();
-        conti <- id_continue() * ..;
+        start <- Parser::satisfy(|c| c == '_' || c.is_alphabetic());
+        conti <- Parser::satisfy(|c| c == '_' || c.is_alphanumeric()) * ..;
         let idvec = vec![vec![start], conti].concat();
         return idvec.iter().collect()
     }
 }
 
+/// 数値リテラルを表すパーサ
 fn literal_digit() -> Parser<char> {
     Parser::satisfy(|c| c.is_ascii_digit())
 }
 
 fn binop() -> Parser<String> {
     (pdo! {
-        whitespace() * ..;
+        ws();
         op <- choice(available_operators_without_space().into_iter().map(|op| chunk(op)));
-        whitespace() * ..;
+        ws();
         return op.to_string()
     }) | pdo! {
         whitespace() * (1..);
@@ -86,26 +85,28 @@ fn ghast_binop() -> Parser<FlatIR> {
 fn paren() -> Parser<FlatIR> {
     pdo! {
         single('(');
-        whitespace() * ..;
+        ws();
         t <- ghast_master();
-        whitespace() * ..;
+        ws();
         single(')');
         return t
     }
 }
 
+/// 「項」のパーサ
 fn term() -> Parser<FlatIR> {
     // (foo) is a value, (foo,) is a tuple
     unary_term() | ghast_fn() | ghast_symbol() | ghast_lit() | paren() | ghast_tuple()
 }
 
+/// 単項演算子のパーサ
 fn unary_term() -> Parser<FlatIR> {
     pdo! {
         // TODO: +と-以外の単項演算子にも対応する
-        op <- choice(vec![chunk("+"), chunk("-")].into_iter());
-        whitespace() * ..;
+        op <- chunk("+") | chunk("-");
+        ws();
         term <- term();
-        return FlatIR::UnaryOp(op.to_string(), Box::new(term))
+        return FlatIR::UnaryOp(op, Box::new(term))
     }
 }
 
@@ -157,9 +158,9 @@ fn ghast_tuple() -> Parser<FlatIR> {
 
 pub fn ghast_master() -> Parser<FlatIR> {
     pdo! {
-        whitespace() * ..;
+        ws();
         binop <- ghast_binop();
-        whitespace() * ..;
+        ws();
         return binop
     }
 }
