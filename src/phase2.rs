@@ -176,22 +176,12 @@ fn tuple() -> Parser<FlatIR> {
 
 /// 二項演算子の項になれる表現
 pub fn term() -> Parser<FlatIR> {
-    pdo! {
-        ws();
-        t <- unary_term() | literal() | symbol() | paren() | tuple();
-        ws();
-        return t
-    }
+    ws() >> (unary_term() | literal() | symbol() | paren() | tuple()) << ws()
 }
 
 /// 二項演算子の項になれないものも含む、あらゆる表現
 pub fn expr() -> Parser<FlatIR> {
-    pdo! {
-        ws();
-        e <- binop() | term() | fun();
-        ws();
-        return e
-    }
+    ws() >> (binop() | term() | fun()) << ws()
 }
 
 pub fn ghast() -> Parser<FlatIR> {
