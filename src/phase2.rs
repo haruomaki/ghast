@@ -29,7 +29,7 @@ fn ws() -> Parser<()> {
     (whitespace() * ..).void()
 }
 
-/// 変数名などを表すパーサ
+/// 変数名・仮引数名などを表すパーサ
 fn id() -> Parser<String> {
     pdo! {
         start <- Parser::satisfy(|c| c == '_' || c.is_alphabetic());
@@ -37,11 +37,6 @@ fn id() -> Parser<String> {
         let idvec = vec![vec![start], conti].concat();
         return idvec.iter().collect()
     }
-}
-
-/// 数値リテラルを表すパーサ
-fn literal_digit() -> Parser<char> {
-    Parser::satisfy(|c| c.is_ascii_digit())
 }
 
 // ---------------------------
@@ -139,10 +134,12 @@ fn paren() -> Parser<FlatIR> {
     }
 }
 
+/// シンボルを表すパーサ
 fn symbol() -> Parser<FlatIR> {
-    id().bind(|id| Parser::ret(FlatIR::Symbol(id)))
+    id().map(FlatIR::Symbol)
 }
 
+/// ラムダ式を表すパーサ
 fn fun() -> Parser<FlatIR> {
     pdo! {
         single('\\');
@@ -155,19 +152,21 @@ fn fun() -> Parser<FlatIR> {
     }
 }
 
+/// リテラルを表すパーサ
 fn literal() -> Parser<FlatIR> {
     pdo! {
         // I32
-        num <- literal_digit() * (1..);
+        num <- ascii_digit() * (1..); // TODO: 文字列、小数などにも対応
         let num_str = num.iter().collect::<String>();
         return FlatIR::Lit(Literal::I32(num_str.parse().unwrap()))
     }
 }
 
+/// タプル（丸括弧で囲まれたカンマ区切りの項）のパーサ
 fn tuple() -> Parser<FlatIR> {
     pdo! {
         single('(');
-        terms <- sep_by(expr(), single(','));
+        terms <- expr().sep_by(single(','));
         ws(); // 空の括弧内 or 末尾カンマ後の空白を許容
         single(')');
         return FlatIR::Tuple(terms)
