@@ -1,10 +1,6 @@
 use std::error::Error;
 
-mod operator;
-mod phase2;
-mod phase3;
-
-use phase2::{FlatIR, ParseError};
+use ghast::phase2::{self, FlatIR, ParseError};
 
 fn parse_and_print(input: String) -> Result<(), Box<dyn Error>> {
     // 入力が空なら終了
