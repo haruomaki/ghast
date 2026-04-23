@@ -117,13 +117,7 @@ fn binop() -> Parser<FlatIR> {
 
 /// 括弧に包まれた表現をパース
 fn paren() -> Parser<FlatIR> {
-    // TODO: lazy導入
-    pdo! {
-        single('(');
-        t <- expr();
-        single(')');
-        return t
-    }
+    single('(') >> lazy!(expr) << single(')')
 }
 
 /// シンボルを表すパーサ
