@@ -1,5 +1,5 @@
 use crate::operator::{available_operators_without_space, postfix_operators, prefix_operators};
-use monapa::*;
+use monapa::{Parser, *};
 
 pub use monapa::ParseError;
 
@@ -12,6 +12,7 @@ pub struct Binop {
 #[derive(Clone, Debug)]
 pub enum Literal {
     I32(i32),
+    Str(String),
 }
 
 #[derive(Clone, Debug)]
@@ -96,9 +97,8 @@ fn binop() -> Parser<FlatIR> {
     pdo! {
         head <- term();
         rest <- binop_rest();
-        return if rest.is_empty() {
-            // TODO: 条件分岐を削除
-            panic!("ぴえん");
+        if rest.is_empty() {
+            return Parser::ret(head);
         } else {
             let mut terms = vec![head];
             let mut ops = vec![];
@@ -106,7 +106,7 @@ fn binop() -> Parser<FlatIR> {
                 terms.push(term);
                 ops.push(op);
             }
-            FlatIR::Binop(Binop{terms, ops})
+            return Parser::ret(FlatIR::Binop(Binop{terms, ops}));
         }
     }
 }
@@ -140,12 +140,23 @@ fn fun() -> Parser<FlatIR> {
 
 /// リテラルを表すパーサ
 fn literal() -> Parser<FlatIR> {
-    pdo! {
-        // I32
-        num <- ascii_digit() * (1..); // TODO: 文字列、小数などにも対応
+    // String literal
+    let string_literal = pdo! {
+        single('"');
+        contents <- Parser::satisfy(|c| c != '"') * ..;
+        single('"');
+        let str_contents = contents.iter().collect::<String>();
+        return FlatIR::Lit(Literal::Str(str_contents))
+    };
+
+    // I32
+    let int_literal = pdo! {
+        num <- ascii_digit() * (1..);
         let num_str = num.iter().collect::<String>();
         return FlatIR::Lit(Literal::I32(num_str.parse().unwrap()))
-    }
+    };
+
+    string_literal | int_literal
 }
 
 /// タプル（丸括弧で囲まれたカンマ区切りの項）のパーサ
