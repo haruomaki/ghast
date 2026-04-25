@@ -2,6 +2,7 @@ use crate::operator::*;
 use crate::phase2::{Binop, FlatIR, Literal};
 
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 #[derive(Clone, Debug)]
 pub enum Ghast {
@@ -10,9 +11,14 @@ pub enum Ghast {
     Apply(Box<Ghast>, Box<Ghast>),
     Lit(Literal),
     Tuple(Vec<Ghast>),
+    Seq(Vec<Ghast>),
 }
 
 pub type Env = HashMap<String, Value>;
+
+// ===========================
+// Value列挙体
+// ===========================
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -20,6 +26,7 @@ pub enum Value {
     Closure(String, Box<Ghast>, Env),
     Tuple(Vec<Value>),
     Builtin(&'static str),
+    Unit,
 }
 
 impl Value {
@@ -30,6 +37,34 @@ impl Value {
         }
     }
 }
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::I32(value) => write!(f, "{}", value),
+            Value::Closure(param, body, _env) => {
+                write!(f, "closure({:?}, {:?})", param, body)
+            }
+            Value::Tuple(elements) => {
+                write!(
+                    f,
+                    "({})",
+                    elements
+                        .iter()
+                        .map(|e| format!("{}", e))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            Value::Builtin(name) => write!(f, "{}", name),
+            Value::Unit => write!(f, "unit"),
+        }
+    }
+}
+
+// ===========================
+// ASTの評価
+// ===========================
 
 pub fn eval(ast: &Ghast) -> Value {
     let mut env = Env::new();
@@ -43,7 +78,12 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
             None => match name.as_str() {
                 "add" => Value::Builtin("add"),
                 "sub" => Value::Builtin("sub"),
+                "mul" => Value::Builtin("mul"),
+                "div" => Value::Builtin("div"),
                 "neg" => Value::Builtin("neg"),
+                "pos" => Value::Builtin("pos"),
+                "not" => Value::Builtin("not"),
+                "print" => Value::Builtin("print"),
                 _ => panic!("未定義のシンボルです: {}", name),
             },
         },
@@ -85,17 +125,66 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
                         }
                         _ => panic!("sub は 2 つの整数を取ります"),
                     },
+                    "mul" => match args_value {
+                        Value::Tuple(mut elements) if elements.len() == 2 => {
+                            let rhs = elements.pop().unwrap().as_i32();
+                            let lhs = elements.pop().unwrap().as_i32();
+                            Value::I32(lhs * rhs)
+                        }
+                        _ => panic!("mul は 2 つの整数を取ります"),
+                    },
+                    "div" => match args_value {
+                        Value::Tuple(mut elements) if elements.len() == 2 => {
+                            let rhs = elements.pop().unwrap().as_i32();
+                            let lhs = elements.pop().unwrap().as_i32();
+                            Value::I32(lhs / rhs)
+                        }
+                        _ => panic!("div は 2 つの整数を取ります"),
+                    },
                     "neg" => match args_value {
                         Value::I32(value) => Value::I32(-value),
                         _ => panic!("neg は 1 つの整数を取ります"),
                     },
+                    "pos" => match args_value {
+                        Value::I32(value) => Value::I32(value),
+                        _ => panic!("pos は 1 つの整数を取ります"),
+                    },
+                    "not" => match args_value {
+                        Value::I32(value) => Value::I32(if value != 0 { 0 } else { 1 }),
+                        _ => panic!("not は 1 つの整数を取ります"),
+                    },
+                    "print" => {
+                        // TODO: 関数には必ずタプルが渡されることにしているが、ちょっと処理がめんどい、、
+                        match args_value {
+                            Value::Tuple(vals) => {
+                                // 空白区切りで出力
+                                println!(
+                                    "{}",
+                                    vals.iter()
+                                        .map(|v| format!("{}", v))
+                                        .collect::<Vec<_>>()
+                                        .join(" ")
+                                );
+                            }
+                            _ => panic!("関数への入力がタプルでありません"),
+                        }
+                        Value::Unit
+                    }
                     _ => panic!("未知の組み込み関数です: {}", name),
                 },
                 other => panic!("適用可能な関数ではありません: {:?}", other),
             }
         }
+        Ghast::Seq(exprs) => {
+            let mut result = Value::Unit;
+            for expr in exprs {
+                result = eval_with_env(expr, env);
+            }
+            result
+        }
         Ghast::Lit(literal) => match literal {
             Literal::I32(value) => Value::I32(*value),
+            Literal::Str(_value) => Value::Builtin("str"), // Placeholder for string value
         },
         Ghast::Tuple(elements) => Value::Tuple(
             elements
@@ -105,6 +194,10 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
         ),
     }
 }
+
+// ===========================
+// ユーティリティ関数
+// ===========================
 
 /// Binopを位置pで分割する
 fn split_at(binop: Binop, p: usize) -> (Binop, Binop) {
@@ -126,7 +219,7 @@ fn find_min_precedence_index(ops: &[String]) -> Result<usize, String> {
     // 最小優先度を見つける
     let min_prec = ops
         .iter()
-        .map(|op| info(op).precedence)
+        .map(|op| info(op).unwrap().precedence)
         .min()
         .expect("opsは空でない必要があります");
 
@@ -134,8 +227,8 @@ fn find_min_precedence_index(ops: &[String]) -> Result<usize, String> {
     let min_ops: Vec<_> = ops
         .iter()
         .enumerate()
-        .filter(|(_, op)| info(op).precedence == min_prec)
-        .map(|(i, op)| (i, info(op).fixity))
+        .filter(|(_, op)| info(op).unwrap().precedence == min_prec)
+        .map(|(i, op)| (i, info(op).unwrap().fixity))
         .collect();
 
     if min_ops.len() == 1 {
@@ -151,8 +244,8 @@ fn find_min_precedence_index(ops: &[String]) -> Result<usize, String> {
 
         match common_fixity {
             Fixity::None => Err("非結合性(Fixity=None)の演算子を並列させています".to_string()),
-            Fixity::Left => Ok(min_ops.iter().map(|(i, _)| i).max().unwrap().to_owned()),
-            Fixity::Right => Ok(min_ops.iter().map(|(i, _)| i).min().unwrap().to_owned()),
+            Fixity::InfixLeft => Ok(min_ops.iter().map(|(i, _)| i).max().unwrap().to_owned()),
+            Fixity::InfixRight => Ok(min_ops.iter().map(|(i, _)| i).min().unwrap().to_owned()),
             _ => panic!("CmpLeftとCmpRightは未実装です"),
         }
     }
@@ -174,14 +267,19 @@ pub fn convert_into_ghast(binop_ir: FlatIR) -> Ghast {
         FlatIR::Tuple(elems) => {
             Ghast::Tuple(elems.into_iter().map(|e| convert_into_ghast(e)).collect())
         }
-        FlatIR::UnaryOp(op, arg) => match op.as_str() {
-            "+" => convert_into_ghast(*arg),
-            "-" => Ghast::Apply(
-                Box::new(Ghast::Symbol("neg".to_string())),
+        FlatIR::UnaryOp(op, arg) => {
+            let name = if let Some(info) = info_unary(&op, true) {
+                info.name
+            } else if let Some(info) = info_unary(&op, false) {
+                info.name
+            } else {
+                panic!("未知の単項演算子です: {}", op);
+            };
+            Ghast::Apply(
+                Box::new(Ghast::Symbol(name.to_string())),
                 Box::new(convert_into_ghast(*arg)),
-            ),
-            _ => panic!("未知の単項演算子です: {}", op),
-        },
+            )
+        }
         FlatIR::Binop(binop) => {
             // 優先度の低い順に、左結合なら右から、右結合なら左から探索していく。
             // 今のところ演算子は" "だけ。左結合なので右から探索。
@@ -205,14 +303,21 @@ pub fn convert_into_ghast(binop_ir: FlatIR) -> Ghast {
                         let fcore = convert_into_ghast(FlatIR::Binop(f));
                         (bcore, fcore)
                     } else {
-                        let name = info(&binop.ops[pivot]).name;
-                        let ncore = Ghast::Symbol(name.to_string());
+                        let name = info(&binop.ops[pivot]).unwrap().name;
+                        if name == "seq" {
+                            let (b, f) = split_at(binop, pivot);
+                            let bcore = convert_into_ghast(FlatIR::Binop(b));
+                            let fcore = convert_into_ghast(FlatIR::Binop(f));
+                            return Ghast::Seq(vec![bcore, fcore]);
+                        } else {
+                            let ncore = Ghast::Symbol(name.to_string());
 
-                        let (b, f) = split_at(binop, pivot);
-                        let bcore = convert_into_ghast(FlatIR::Binop(b));
-                        let fcore = convert_into_ghast(FlatIR::Binop(f));
-                        let args = Ghast::Tuple(vec![bcore, fcore]);
-                        (ncore, args)
+                            let (b, f) = split_at(binop, pivot);
+                            let bcore = convert_into_ghast(FlatIR::Binop(b));
+                            let fcore = convert_into_ghast(FlatIR::Binop(f));
+                            let args = Ghast::Tuple(vec![bcore, fcore]);
+                            (ncore, args)
+                        }
                     };
 
                     Ghast::Apply(Box::new(function), Box::new(ensure_tuple(arguments)))
