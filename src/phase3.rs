@@ -11,7 +11,7 @@ pub enum Ghast {
     Apply(Box<Ghast>, Box<Ghast>),
     Lit(Literal),
     Tuple(Vec<Ghast>),
-    Seq(Vec<Ghast>),
+    Block(Vec<Ghast>),
 }
 
 pub type Env = HashMap<String, Value>;
@@ -175,7 +175,7 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
                 other => panic!("適用可能な関数ではありません: {:?}", other),
             }
         }
-        Ghast::Seq(exprs) => {
+        Ghast::Block(exprs) => {
             let mut result = Value::Unit;
             for expr in exprs {
                 result = eval_with_env(expr, env);
@@ -264,9 +264,8 @@ pub fn convert_into_ghast(binop_ir: FlatIR) -> Ghast {
         FlatIR::Symbol(name) => Ghast::Symbol(name),
         FlatIR::Fn(param, body) => Ghast::Fn(param, Box::new(convert_into_ghast(*body))),
         FlatIR::Lit(literal) => Ghast::Lit(literal),
-        FlatIR::Tuple(elems) => {
-            Ghast::Tuple(elems.into_iter().map(|e| convert_into_ghast(e)).collect())
-        }
+        FlatIR::Tuple(elems) => Ghast::Tuple(elems.into_iter().map(convert_into_ghast).collect()),
+        FlatIR::Block(exprs) => Ghast::Block(exprs.into_iter().map(convert_into_ghast).collect()),
         FlatIR::UnaryOp(op, arg) => {
             let name = if let Some(info) = info_unary(&op, true) {
                 info.name
@@ -304,11 +303,11 @@ pub fn convert_into_ghast(binop_ir: FlatIR) -> Ghast {
                         (bcore, fcore)
                     } else {
                         let name = info(&binop.ops[pivot]).unwrap().name;
-                        if name == "seq" {
+                        if name == "__block" {
                             let (b, f) = split_at(binop, pivot);
                             let bcore = convert_into_ghast(FlatIR::Binop(b));
                             let fcore = convert_into_ghast(FlatIR::Binop(f));
-                            return Ghast::Seq(vec![bcore, fcore]);
+                            return Ghast::Block(vec![bcore, fcore]);
                         } else {
                             let ncore = Ghast::Symbol(name.to_string());
 

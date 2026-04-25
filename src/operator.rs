@@ -49,12 +49,6 @@ pub const OPERATORS: &[OperatorInfo] = &[
         precedence: 20,
     },
     OperatorInfo {
-        op: ";",
-        name: "seq",
-        fixity: Fixity::InfixLeft,
-        precedence: 1,
-    },
-    OperatorInfo {
         op: "+",
         name: "pos",
         fixity: Fixity::Prefix,

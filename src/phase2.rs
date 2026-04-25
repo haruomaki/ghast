@@ -23,11 +23,7 @@ pub enum FlatIR {
     Binop(Binop),
     Lit(Literal),
     Tuple(Vec<FlatIR>),
-}
-
-/// 空白を消費するパーサ
-fn ws() -> Parser<()> {
-    (whitespace() * ..).void()
+    Block(Vec<FlatIR>),
 }
 
 /// 変数名・仮引数名などを表すパーサ
@@ -170,6 +166,11 @@ fn tuple() -> Parser<FlatIR> {
     }
 }
 
+/// 何もないことを表すパーサ
+fn null() -> Parser<FlatIR> {
+    Parser::ret(FlatIR::Tuple(vec![]))
+}
+
 /// 後置演算子の前に配置できる表現
 fn atom() -> Parser<FlatIR> {
     ws() >> (literal() | symbol() | paren() | tuple()) << ws()
@@ -182,11 +183,20 @@ pub fn term() -> Parser<FlatIR> {
 
 /// 二項演算子の項になれないものも含む、あらゆる表現
 pub fn expr() -> Parser<FlatIR> {
-    ws() >> (binop() | fun() | term()) << ws()
+    ws() >> (binop() | fun() | term() | null()) << ws()
 }
 
+/// 複文
+pub fn block() -> Parser<FlatIR> {
+    pdo! {
+        exprs <- expr().sep_by_strict(single(';'));
+        return FlatIR::Block(exprs)
+    }
+}
+
+/// Ghast言語の根本
 pub fn ghast() -> Parser<FlatIR> {
-    expr()
+    block()
 }
 
 // =====================================
