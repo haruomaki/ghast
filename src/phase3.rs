@@ -2,6 +2,7 @@ use crate::operator::*;
 use crate::phase2::{Binop, FlatIR, Literal};
 
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 #[derive(Clone, Debug)]
 pub enum Ghast {
@@ -14,6 +15,10 @@ pub enum Ghast {
 }
 
 pub type Env = HashMap<String, Value>;
+
+// ===========================
+// Value列挙体
+// ===========================
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -32,6 +37,34 @@ impl Value {
         }
     }
 }
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::I32(value) => write!(f, "{}", value),
+            Value::Closure(param, body, _env) => {
+                write!(f, "closure({:?}, {:?})", param, body)
+            }
+            Value::Tuple(elements) => {
+                write!(
+                    f,
+                    "({})",
+                    elements
+                        .iter()
+                        .map(|e| format!("{}", e))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            Value::Builtin(name) => write!(f, "{}", name),
+            Value::Unit => write!(f, "unit"),
+        }
+    }
+}
+
+// ===========================
+// ASTの評価
+// ===========================
 
 pub fn eval(ast: &Ghast) -> Value {
     let mut env = Env::new();
@@ -103,7 +136,20 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
                         _ => panic!("not は 1 つの整数を取ります"),
                     },
                     "print" => {
-                        println!("{:?}", args_value);
+                        // TODO: 関数には必ずタプルが渡されることにしているが、ちょっと処理がめんどい、、
+                        match args_value {
+                            Value::Tuple(vals) => {
+                                // 空白区切りで出力
+                                println!(
+                                    "{}",
+                                    vals.iter()
+                                        .map(|v| format!("{}", v))
+                                        .collect::<Vec<_>>()
+                                        .join(" ")
+                                );
+                            }
+                            _ => panic!("関数への入力がタプルでありません"),
+                        }
                         Value::Unit
                     }
                     _ => panic!("未知の組み込み関数です: {}", name),
@@ -130,6 +176,10 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
         ),
     }
 }
+
+// ===========================
+// ユーティリティ関数
+// ===========================
 
 /// Binopを位置pで分割する
 fn split_at(binop: Binop, p: usize) -> (Binop, Binop) {

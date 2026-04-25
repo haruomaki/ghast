@@ -7,17 +7,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     match std::env::args().nth(1) {
         Some(arg) if arg == "-i" => {
             for input in pomprt::new(">>> ") {
-                if let Err(e) = exec(input) {
-                    println!("{:?}", e);
+                match exec(input, false) {
+                    Ok(v) => println!("{}", v),
+                    Err(e) => println!("{:?}", e),
                 }
             }
-            Ok(())
         }
-        Some(arg) => exec(arg),
+        Some(arg) => {
+            exec(arg, true)?;
+        }
         None => {
             // デモモード
             eprintln!("Demo mode.");
-            exec(String::from("1 + 1"))
+            exec(String::from("1 + 1"), true)?;
         }
-    }
+    };
+    Ok(())
 }
