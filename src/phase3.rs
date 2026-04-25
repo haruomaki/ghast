@@ -78,6 +78,8 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
             None => match name.as_str() {
                 "add" => Value::Builtin("add"),
                 "sub" => Value::Builtin("sub"),
+                "mul" => Value::Builtin("mul"),
+                "div" => Value::Builtin("div"),
                 "neg" => Value::Builtin("neg"),
                 "pos" => Value::Builtin("pos"),
                 "not" => Value::Builtin("not"),
@@ -122,6 +124,22 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
                             Value::I32(lhs - rhs)
                         }
                         _ => panic!("sub は 2 つの整数を取ります"),
+                    },
+                    "mul" => match args_value {
+                        Value::Tuple(mut elements) if elements.len() == 2 => {
+                            let rhs = elements.pop().unwrap().as_i32();
+                            let lhs = elements.pop().unwrap().as_i32();
+                            Value::I32(lhs * rhs)
+                        }
+                        _ => panic!("mul は 2 つの整数を取ります"),
+                    },
+                    "div" => match args_value {
+                        Value::Tuple(mut elements) if elements.len() == 2 => {
+                            let rhs = elements.pop().unwrap().as_i32();
+                            let lhs = elements.pop().unwrap().as_i32();
+                            Value::I32(lhs / rhs)
+                        }
+                        _ => panic!("div は 2 つの整数を取ります"),
                     },
                     "neg" => match args_value {
                         Value::I32(value) => Value::I32(-value),
