@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use crate::phase2::{self, FlatIR, ParseError};
+use crate::phase3;
 
 /// Ghastのコードをインタプリタ実行する
 pub fn exec(input: String) -> Result<(), Box<dyn Error>> {
@@ -13,11 +14,11 @@ pub fn exec(input: String) -> Result<(), Box<dyn Error>> {
     match result {
         Ok(ghast) => {
             eprintln!("受理🎉 {:?}", ghast);
-            // let core_ast = corelang::convert_into_ghast(ghast);
-            // eprintln!("コア言語💎 {:?}", core_ast);
+            let core_ast = phase3::convert_into_ghast(ghast);
+            eprintln!("コア言語💎 {:?}", core_ast);
 
-            // let value = corelang::eval(&core_ast);
-            // println!("評価結果: {:?}", value);
+            let value = phase3::eval(&core_ast);
+            println!("評価結果: {:?}", value);
 
             Ok(())
         }

@@ -120,7 +120,7 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
         }
         Ghast::Lit(literal) => match literal {
             Literal::I32(value) => Value::I32(*value),
-            Literal::Str(value) => Value::Builtin("str"), // Placeholder for string value
+            Literal::Str(_value) => Value::Builtin("str"), // Placeholder for string value
         },
         Ghast::Tuple(elements) => Value::Tuple(
             elements
