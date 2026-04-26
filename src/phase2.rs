@@ -36,6 +36,17 @@ fn id() -> Parser<String> {
     }
 }
 
+/// コメントを表すパーサ
+fn comment() -> Parser<String> {
+    // '\n'が発見できなければ終端まで全部読み込む
+    single('#') >> (until('\n') | remnant())
+}
+
+/// 空白（コメントを含む）を消費する
+fn ws() -> Parser<()> {
+    monapa::ws() >> comment().option() >> monapa::ws()
+}
+
 // ---------------------------
 // 単項演算子
 // ---------------------------
