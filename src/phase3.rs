@@ -86,6 +86,7 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
                 "sub" => Value::Builtin("sub"),
                 "mul" => Value::Builtin("mul"),
                 "div" => Value::Builtin("div"),
+                "eq" => Value::Builtin("eq"),
                 "neg" => Value::Builtin("neg"),
                 "pos" => Value::Builtin("pos"),
                 "not" => Value::Builtin("not"),

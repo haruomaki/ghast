@@ -44,6 +44,14 @@ pub fn invoke(name: &str, args_value: Value) -> Value {
             }
             _ => panic!("div は 2 つの整数を取ります"),
         },
+        "eq" => match args_value {
+            Value::Tuple(mut elements) if elements.len() == 2 => {
+                let rhs = elements.pop().unwrap().as_i32();
+                let lhs = elements.pop().unwrap().as_i32();
+                Value::Bool(lhs == rhs)
+            }
+            _ => panic!("eq は 2 つの整数を取ります"),
+        },
         "neg" => match args_value {
             Value::I32(value) => Value::I32(-value),
             _ => panic!("neg は 1 つの整数を取ります"),
