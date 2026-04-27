@@ -26,6 +26,7 @@ pub enum FlatIR {
     Tuple(Vec<FlatIR>),
     Block(Vec<FlatIR>),
     IfElse(Box<FlatIR>, Box<FlatIR>, Box<FlatIR>), // condition, then, else
+    Assign(String, Box<FlatIR>),
 }
 
 /// 変数名・仮引数名などを表すパーサ
@@ -117,6 +118,21 @@ fn binop() -> Parser<FlatIR> {
             }
             return Parser::ret(FlatIR::Binop(Binop{terms, ops}));
         }
+    }
+}
+
+// ---------------------------
+// 代入演算子
+// ---------------------------
+
+/// 代入をパースする
+fn assign() -> Parser<FlatIR> {
+    pdo! {
+        varname <- id();
+        ws();
+        single('=');
+        rhs <- expr();
+        return FlatIR::Assign(varname, Box::new(rhs))
     }
 }
 
@@ -213,15 +229,12 @@ pub fn term() -> Parser<FlatIR> {
 
 /// 二項演算子の項になれないものも含む、あらゆる表現
 pub fn expr() -> Parser<FlatIR> {
-    ws() >> (binop() | ifelse() | fun() | term() | null()) << ws()
+    ws() >> (binop() | ifelse() | fun() | assign() | term() | null()) << ws()
 }
 
 /// 複文
 pub fn block() -> Parser<FlatIR> {
-    pdo! {
-        exprs <- expr().sep_by_strict(single(';'));
-        return FlatIR::Block(exprs)
-    }
+    expr().sep_by_strict(single(';')).map(FlatIR::Block)
 }
 
 /// Ghast言語の根本

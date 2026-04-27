@@ -14,6 +14,7 @@ pub enum Ghast {
     Tuple(Vec<Ghast>),
     Block(Vec<Ghast>),
     If(Box<Ghast>, Box<Ghast>, Box<Ghast>), // condition, then, else
+    Assign(String, Box<Ghast>),
 }
 
 pub type Env = HashMap<String, Value>;
@@ -143,6 +144,11 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
                 .map(|element| eval_with_env(element, env))
                 .collect(),
         ),
+        Ghast::Assign(varname, value) => {
+            let val = eval_with_env(value, env);
+            env.insert(varname.to_string(), val.clone());
+            val
+        }
     }
 }
 
@@ -222,6 +228,7 @@ pub fn convert_into_ghast(binop_ir: FlatIR) -> Ghast {
             Box::new(convert_into_ghast(*then)),
             Box::new(convert_into_ghast(*else_expr)),
         ),
+        FlatIR::Assign(varname, rhs) => Ghast::Assign(varname, Box::new(convert_into_ghast(*rhs))),
         FlatIR::UnaryOp(op, arg) => {
             let name = if let Some(info) = info_unary(&op, true) {
                 info.name
@@ -259,20 +266,13 @@ pub fn convert_into_ghast(binop_ir: FlatIR) -> Ghast {
                         (bcore, fcore)
                     } else {
                         let name = info(&binop.ops[pivot]).unwrap().name;
-                        if name == "__block" {
-                            let (b, f) = split_at(binop, pivot);
-                            let bcore = convert_into_ghast(FlatIR::Binop(b));
-                            let fcore = convert_into_ghast(FlatIR::Binop(f));
-                            return Ghast::Block(vec![bcore, fcore]);
-                        } else {
-                            let ncore = Ghast::Symbol(name.to_string());
+                        let ncore = Ghast::Symbol(name.to_string());
 
-                            let (b, f) = split_at(binop, pivot);
-                            let bcore = convert_into_ghast(FlatIR::Binop(b));
-                            let fcore = convert_into_ghast(FlatIR::Binop(f));
-                            let args = Ghast::Tuple(vec![bcore, fcore]);
-                            (ncore, args)
-                        }
+                        let (b, f) = split_at(binop, pivot);
+                        let bcore = convert_into_ghast(FlatIR::Binop(b));
+                        let fcore = convert_into_ghast(FlatIR::Binop(f));
+                        let args = Ghast::Tuple(vec![bcore, fcore]);
+                        (ncore, args)
                     };
 
                     Ghast::Apply(Box::new(function), Box::new(ensure_tuple(arguments)))
