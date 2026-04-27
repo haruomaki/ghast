@@ -1,0 +1,78 @@
+//! Ghastの組み込み関数を定義するモジュール
+
+use crate::phase3::Value;
+
+/// Ghastの組み込み関数を呼び出します
+///
+/// ## パラメータ
+/// - `name`: 呼び出す組み込み関数名 (例: "add", "sub", "mul", "div", "neg", "pos", "not", "print")
+/// - `args_value`: 関数に渡す引数の Value (通常は 2 つの要素を含む Tuple)
+///
+/// ## 戻り値
+/// 呼び出された関数の戻り値 (Value)
+pub fn invoke(name: &str, args_value: Value) -> Value {
+    match name {
+        "add" => match args_value {
+            Value::Tuple(mut elements) if elements.len() == 2 => {
+                let rhs = elements.pop().unwrap().as_i32();
+                let lhs = elements.pop().unwrap().as_i32();
+                Value::I32(lhs + rhs)
+            }
+            _ => panic!("add は 2 つの整数を取ります"),
+        },
+        "sub" => match args_value {
+            Value::Tuple(mut elements) if elements.len() == 2 => {
+                let rhs = elements.pop().unwrap().as_i32();
+                let lhs = elements.pop().unwrap().as_i32();
+                Value::I32(lhs - rhs)
+            }
+            _ => panic!("sub は 2 つの整数を取ります"),
+        },
+        "mul" => match args_value {
+            Value::Tuple(mut elements) if elements.len() == 2 => {
+                let rhs = elements.pop().unwrap().as_i32();
+                let lhs = elements.pop().unwrap().as_i32();
+                Value::I32(lhs * rhs)
+            }
+            _ => panic!("mul は 2 つの整数を取ります"),
+        },
+        "div" => match args_value {
+            Value::Tuple(mut elements) if elements.len() == 2 => {
+                let rhs = elements.pop().unwrap().as_i32();
+                let lhs = elements.pop().unwrap().as_i32();
+                Value::I32(lhs / rhs)
+            }
+            _ => panic!("div は 2 つの整数を取ります"),
+        },
+        "neg" => match args_value {
+            Value::I32(value) => Value::I32(-value),
+            _ => panic!("neg は 1 つの整数を取ります"),
+        },
+        "pos" => match args_value {
+            Value::I32(value) => Value::I32(value),
+            _ => panic!("pos は 1 つの整数を取ります"),
+        },
+        "not" => match args_value {
+            Value::I32(value) => Value::I32(if value != 0 { 0 } else { 1 }),
+            _ => panic!("not は 1 つの整数を取ります"),
+        },
+        "print" => {
+            // TODO: 関数には必ずタプルが渡されることにしているが、ちょっと処理がめんどい、、
+            match args_value {
+                Value::Tuple(vals) => {
+                    // 空白区切りで出力
+                    println!(
+                        "{}",
+                        vals.iter()
+                            .map(|v| format!("{}", v))
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    );
+                }
+                _ => panic!("関数への入力がタプルでありません"),
+            }
+            Value::Unit
+        }
+        _ => panic!("未知の組み込み関数です: {}", name),
+    }
+}

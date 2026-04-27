@@ -1,3 +1,4 @@
+use crate::builtins;
 use crate::operator::*;
 use crate::phase2::{Binop, FlatIR, Literal};
 
@@ -32,7 +33,7 @@ pub enum Value {
 }
 
 impl Value {
-    fn as_i32(&self) -> i32 {
+    pub fn as_i32(&self) -> i32 {
         match self {
             Value::I32(value) => *value,
             _ => panic!("整数値ではありません: {:?}", self),
@@ -112,70 +113,7 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
                     new_env.insert(param, arg);
                     eval_with_env(&body, &mut new_env)
                 }
-                Value::Builtin(name) => match name {
-                    "add" => match args_value {
-                        Value::Tuple(mut elements) if elements.len() == 2 => {
-                            let rhs = elements.pop().unwrap().as_i32();
-                            let lhs = elements.pop().unwrap().as_i32();
-                            Value::I32(lhs + rhs)
-                        }
-                        _ => panic!("add は 2 つの整数を取ります"),
-                    },
-                    "sub" => match args_value {
-                        Value::Tuple(mut elements) if elements.len() == 2 => {
-                            let rhs = elements.pop().unwrap().as_i32();
-                            let lhs = elements.pop().unwrap().as_i32();
-                            Value::I32(lhs - rhs)
-                        }
-                        _ => panic!("sub は 2 つの整数を取ります"),
-                    },
-                    "mul" => match args_value {
-                        Value::Tuple(mut elements) if elements.len() == 2 => {
-                            let rhs = elements.pop().unwrap().as_i32();
-                            let lhs = elements.pop().unwrap().as_i32();
-                            Value::I32(lhs * rhs)
-                        }
-                        _ => panic!("mul は 2 つの整数を取ります"),
-                    },
-                    "div" => match args_value {
-                        Value::Tuple(mut elements) if elements.len() == 2 => {
-                            let rhs = elements.pop().unwrap().as_i32();
-                            let lhs = elements.pop().unwrap().as_i32();
-                            Value::I32(lhs / rhs)
-                        }
-                        _ => panic!("div は 2 つの整数を取ります"),
-                    },
-                    "neg" => match args_value {
-                        Value::I32(value) => Value::I32(-value),
-                        _ => panic!("neg は 1 つの整数を取ります"),
-                    },
-                    "pos" => match args_value {
-                        Value::I32(value) => Value::I32(value),
-                        _ => panic!("pos は 1 つの整数を取ります"),
-                    },
-                    "not" => match args_value {
-                        Value::I32(value) => Value::I32(if value != 0 { 0 } else { 1 }),
-                        _ => panic!("not は 1 つの整数を取ります"),
-                    },
-                    "print" => {
-                        // TODO: 関数には必ずタプルが渡されることにしているが、ちょっと処理がめんどい、、
-                        match args_value {
-                            Value::Tuple(vals) => {
-                                // 空白区切りで出力
-                                println!(
-                                    "{}",
-                                    vals.iter()
-                                        .map(|v| format!("{}", v))
-                                        .collect::<Vec<_>>()
-                                        .join(" ")
-                                );
-                            }
-                            _ => panic!("関数への入力がタプルでありません"),
-                        }
-                        Value::Unit
-                    }
-                    _ => panic!("未知の組み込み関数です: {}", name),
-                },
+                Value::Builtin(name) => builtins::invoke(name, args_value),
                 other => panic!("適用可能な関数ではありません: {:?}", other),
             }
         }
