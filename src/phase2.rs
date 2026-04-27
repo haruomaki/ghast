@@ -12,6 +12,7 @@ pub struct Binop {
 #[derive(Clone, Debug)]
 pub enum Literal {
     I32(i32),
+    Bool(bool),
     Str(String),
 }
 
@@ -24,6 +25,7 @@ pub enum FlatIR {
     Lit(Literal),
     Tuple(Vec<FlatIR>),
     Block(Vec<FlatIR>),
+    IfElse(Box<FlatIR>, Box<FlatIR>, Box<FlatIR>), // condition, then, else
 }
 
 /// 変数名・仮引数名などを表すパーサ
@@ -132,6 +134,18 @@ fn symbol() -> Parser<FlatIR> {
     id().map(FlatIR::Symbol)
 }
 
+/// 三項演算子のパーサ
+fn ifelse() -> Parser<FlatIR> {
+    pdo! {
+        cond <- term();
+        chunk("?");
+        then <- expr();
+        chunk(":");
+        else_expr <- expr();
+        return FlatIR::IfElse(Box::new(cond), Box::new(then), Box::new(else_expr))
+    }
+}
+
 /// ラムダ式を表すパーサ
 fn fun() -> Parser<FlatIR> {
     pdo! {
@@ -163,7 +177,12 @@ fn literal() -> Parser<FlatIR> {
         return FlatIR::Lit(Literal::I32(num_str.parse().unwrap()))
     };
 
-    string_literal | int_literal
+    // Bool
+    let bool_literal = (chunk("true").to(true) | chunk("false").to(false))
+        .map(Literal::Bool)
+        .map(FlatIR::Lit);
+
+    string_literal | int_literal | bool_literal
 }
 
 /// タプル（丸括弧で囲まれたカンマ区切りの項）のパーサ
@@ -194,7 +213,7 @@ pub fn term() -> Parser<FlatIR> {
 
 /// 二項演算子の項になれないものも含む、あらゆる表現
 pub fn expr() -> Parser<FlatIR> {
-    ws() >> (binop() | fun() | term() | null()) << ws()
+    ws() >> (binop() | ifelse() | fun() | term() | null()) << ws()
 }
 
 /// 複文

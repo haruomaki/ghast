@@ -12,6 +12,7 @@ pub enum Ghast {
     Lit(Literal),
     Tuple(Vec<Ghast>),
     Block(Vec<Ghast>),
+    If(Box<Ghast>, Box<Ghast>, Box<Ghast>), // condition, then, else
 }
 
 pub type Env = HashMap<String, Value>;
@@ -23,6 +24,7 @@ pub type Env = HashMap<String, Value>;
 #[derive(Clone, Debug)]
 pub enum Value {
     I32(i32),
+    Bool(bool),
     Closure(String, Box<Ghast>, Env),
     Tuple(Vec<Value>),
     Builtin(&'static str),
@@ -42,6 +44,8 @@ impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Value::I32(value) => write!(f, "{}", value),
+            Value::Bool(true) => write!(f, "true"),
+            Value::Bool(false) => write!(f, "false"),
             Value::Closure(param, body, _env) => {
                 write!(f, "closure({:?}, {:?})", param, body)
             }
@@ -182,8 +186,17 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
             }
             result
         }
+        Ghast::If(cond, then, else_expr) => {
+            let cond_value = eval_with_env(cond, env);
+            match cond_value {
+                Value::Bool(true) => eval_with_env(then, env),
+                Value::Bool(false) => eval_with_env(else_expr, env),
+                other => panic!("条件式はブール値である必要があります: {:?}", other),
+            }
+        }
         Ghast::Lit(literal) => match literal {
             Literal::I32(value) => Value::I32(*value),
+            Literal::Bool(value) => Value::Bool(*value),
             Literal::Str(_value) => Value::Builtin("str"), // Placeholder for string value
         },
         Ghast::Tuple(elements) => Value::Tuple(
@@ -266,6 +279,11 @@ pub fn convert_into_ghast(binop_ir: FlatIR) -> Ghast {
         FlatIR::Lit(literal) => Ghast::Lit(literal),
         FlatIR::Tuple(elems) => Ghast::Tuple(elems.into_iter().map(convert_into_ghast).collect()),
         FlatIR::Block(exprs) => Ghast::Block(exprs.into_iter().map(convert_into_ghast).collect()),
+        FlatIR::IfElse(cond, then, else_expr) => Ghast::If(
+            Box::new(convert_into_ghast(*cond)),
+            Box::new(convert_into_ghast(*then)),
+            Box::new(convert_into_ghast(*else_expr)),
+        ),
         FlatIR::UnaryOp(op, arg) => {
             let name = if let Some(info) = info_unary(&op, true) {
                 info.name
