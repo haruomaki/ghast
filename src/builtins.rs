@@ -1,6 +1,19 @@
 //! Ghastの組み込み関数を定義するモジュール
 
-use crate::phase3::Value;
+use crate::phase3::{Env, Value};
+
+/// 環境に組み込み関数を登録する
+pub fn register(env: &mut Env) {
+    env.insert(String::from("add"), Value::Builtin("add"));
+    env.insert(String::from("sub"), Value::Builtin("sub"));
+    env.insert(String::from("mul"), Value::Builtin("mul"));
+    env.insert(String::from("div"), Value::Builtin("div"));
+    env.insert(String::from("eq"), Value::Builtin("eq"));
+    env.insert(String::from("neg"), Value::Builtin("neg"));
+    env.insert(String::from("pos"), Value::Builtin("pos"));
+    env.insert(String::from("not"), Value::Builtin("not"));
+    env.insert(String::from("print"), Value::Builtin("print"));
+}
 
 /// Ghastの組み込み関数を呼び出します
 ///

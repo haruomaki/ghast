@@ -72,27 +72,22 @@ impl fmt::Display for Value {
 // ASTの評価
 // ===========================
 
+/// ASTを評価する
 pub fn eval(ast: &Ghast) -> Value {
+    // 環境の初期化
     let mut env = Env::new();
+    builtins::register(&mut env);
+
+    // 評価
     eval_with_env(ast, &mut env)
 }
 
+/// ASTを評価する（環境あり）
 fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
     match ast {
         Ghast::Symbol(name) => match env.get(name) {
             Some(value) => value.clone(),
-            None => match name.as_str() {
-                "add" => Value::Builtin("add"),
-                "sub" => Value::Builtin("sub"),
-                "mul" => Value::Builtin("mul"),
-                "div" => Value::Builtin("div"),
-                "eq" => Value::Builtin("eq"),
-                "neg" => Value::Builtin("neg"),
-                "pos" => Value::Builtin("pos"),
-                "not" => Value::Builtin("not"),
-                "print" => Value::Builtin("print"),
-                _ => panic!("未定義のシンボルです: {}", name),
-            },
+            _ => panic!("未定義のシンボルです: {}", name),
         },
         Ghast::Fn(param, body) => Value::Closure(param.clone(), body.clone(), env.clone()),
         Ghast::Apply(func, args) => {
