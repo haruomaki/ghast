@@ -25,6 +25,7 @@ pub type Env = HashMap<String, Value>;
 
 #[derive(Clone, Debug)]
 pub enum Value {
+    Str(String),
     I32(i32),
     Bool(bool),
     Closure(String, Box<Ghast>, Env),
@@ -45,6 +46,7 @@ impl Value {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Value::Str(s) => write!(f, "{}", s),
             Value::I32(value) => write!(f, "{}", value),
             Value::Bool(true) => write!(f, "true"),
             Value::Bool(false) => write!(f, "false"),
@@ -132,7 +134,7 @@ fn eval_with_env(ast: &Ghast, env: &mut Env) -> Value {
         Ghast::Lit(literal) => match literal {
             Literal::I32(value) => Value::I32(*value),
             Literal::Bool(value) => Value::Bool(*value),
-            Literal::Str(_value) => Value::Builtin("str"), // Placeholder for string value
+            Literal::Str(s) => Value::Str(s.to_string()), // Placeholder for string value
         },
         Ghast::Tuple(elements) => Value::Tuple(
             elements

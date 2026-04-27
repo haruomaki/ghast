@@ -12,10 +12,11 @@ pub fn register(env: &mut Env) {
     env.insert(String::from("neg"), Value::Builtin("neg"));
     env.insert(String::from("pos"), Value::Builtin("pos"));
     env.insert(String::from("not"), Value::Builtin("not"));
+    env.insert(String::from("input"), Value::Builtin("input"));
     env.insert(String::from("print"), Value::Builtin("print"));
 }
 
-/// Ghastの組み込み関数を呼び出します
+/// Ghast の組み込み関数を呼び出します
 ///
 /// ## パラメータ
 /// - `name`: 呼び出す組み込み関数名 (例: "add", "sub", "mul", "div", "neg", "pos", "not", "print")
@@ -77,6 +78,25 @@ pub fn invoke(name: &str, args_value: Value) -> Value {
             Value::I32(value) => Value::I32(if value != 0 { 0 } else { 1 }),
             _ => panic!("not は 1 つの整数を取ります"),
         },
+        "input" => {
+            // プロンプトを表示
+            use std::io::Write;
+            if let Value::Tuple(vals) = args_value {
+                print!("{}", vals[0]);
+                std::io::stdout().flush().unwrap(); // ここで flush
+            }
+
+            // 標準入力から文字列を取得
+            let input = {
+                let mut buf = String::new();
+                std::io::stdin()
+                    .read_line(&mut buf)
+                    .expect("Failed to read from stdin");
+                buf.trim().to_string()
+            };
+            let value: i32 = input.parse().expect("Failed to parse as i32");
+            Value::I32(value)
+        }
         "print" => {
             // TODO: 関数には必ずタプルが渡されることにしているが、ちょっと処理がめんどい、、
             match args_value {
